@@ -20,7 +20,7 @@ Needs Node 22.18 or later, git, and an OpenRouter key. The key and the default m
 idle-harness/bin/idle-harness.mjs chat builder
 ```
 
-`chat <harness> [message] [--session <id>] [--task <id>] [--once]` talks to a harness, creating it on first use. In a chat, `/approve [1-5] [note]`, `/rate <1-5> [note]` and `/reject <reason>` are the human's review of the work; `stats <harness>` shows what each task took to reach approval and how it was rated. `--once` answers and exits, with the answer on stdout and exit code 1 if the model call failed. When the input ends, the harness finishes what it was asked and the command exits. A session that is already running is talked to, not started again. `versions <harness>` lists the versions of its folder; `restore <harness> <version>` puts the folder back at one.
+`improve <harness>` starts an improvement session from a brief the base writes; it also starts on its own every `improveEvery` approved tasks, set in the harness's `config.json`. `chat <harness> [message] [--session <id>] [--task <id>] [--once]` talks to a harness, creating it on first use. In a chat, `/approve [1-5] [note]`, `/rate <1-5> [note]` and `/reject <reason>` are the human's review of the work; `stats <harness>` shows what each task took to reach approval and how it was rated. `--once` answers and exits, with the answer on stdout and exit code 1 if the model call failed. When the input ends, the harness finishes what it was asked and the command exits. A session that is already running is talked to, not started again. `versions <harness>` lists the versions of its folder; `restore <harness> <version>` puts the folder back at one.
 
 ## What a harness writes
 
@@ -46,7 +46,8 @@ export async function turn(context, response, arrived, base) {
 ## On disk
 
 ```
-~/.idle/harness/<harness>/              the harness: config.json, turn.ts, tools/, whatever it needs — a git repository the base drives
+~/.idle/harness/<harness>/              the harness: config.json, turn.ts, tools/, skills/, memory/, whatever it needs — a git
+                                        repository the base drives, its changes' declarations kept as git notes
 ~/.idle/harness/<harness>/.sessions/<session>/
     record.jsonl                        one entry per turn: what arrived, every call and its result, what the model saw (only the
                                         messages after the shared start), its answer, the turn's cost, the commit the work was at
@@ -62,6 +63,7 @@ Each module imports only from the ones below it; a test fails on any import cycl
 | Module | What it is |
 |---|---|
 | `src/cli.ts` | the plain front end and the human's commands |
+| `src/improve.ts` | the improvement session: its brief, when it is due, starting it |
 | `src/analytics.ts` | what each task took and what every version of the harness's own tools cost and did, read from the records (`idle-harness stats`) |
 | `src/loop.ts` | the loop for one session, its building blocks, and stopping it mid-turn |
 | `src/harness.ts` | a harness folder at one version: its turn, its tools, its settings |

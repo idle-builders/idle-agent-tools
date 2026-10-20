@@ -39,7 +39,7 @@ Approval has to be a signal, not something read into a merge or a silence. The h
 - **The human answers where they are.** In the chat, `/approve 4 the error messages are better than I asked for` or `/reject the totals are still off for refunds`. On the command line, the same through idle-tasks. On a pull request, an approval or a merge, mapped onto the same event. A rejection is a reopen, with its reason.
 - **The answer reaches the harness as an inbox item**, so the session that did the work, or the next one, sees it, and its retrospective can use it.
 
-Built so far: the chat side. `/approve [1-5] [note]`, `/rate <1-5> [note]` and `/reject <reason>` arrive as items from `review`, which the record keeps. Until idle-tasks keeps approvals and ratings, `stats` reads them from there. A review is for the task the human names, or else the one the session is on, or else the one it last submitted. The cost to approval is what the task had cost when the approval arrived, not counting the turn that reads it.
+Built so far: the chat side. `/approve [1-5] [note]`, `/rate <1-5> [note]` and `/reject <reason>` arrive as items from `review`, which the record keeps, and an approval asks the agent to put the human's words on the task as its outcome and write a retrospective there. Until idle-tasks keeps ratings structurally, `stats` reads them from the record. A review is for the task the human names, or else the one the session is on, or else the one it last submitted. The cost to approval is what the task had cost when the approval arrived, not counting the turn that reads it. Improvement sessions' cost is the platform's and kept apart, and every declared change is set against the tasks started before and after it.
 
 ## What it needs from idle-tasks
 

@@ -6,9 +6,10 @@ import { constants } from 'node:os';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { report } from './analytics.ts';
+import { prepare } from './improve.ts';
 import { harnessDir, sessionDir } from './home.ts';
 import { interrupt, run } from './loop.ts';
-import { follower, holder, pending, send } from './record.ts';
+import { follower, holder, pending, read, send } from './record.ts';
 import type { Review } from './record.ts';
 import * as versions from './versions.ts';
 
@@ -16,6 +17,9 @@ const USAGE = `idle-harness chat <harness> [message] [--session <id>] [--task <i
                                              talk to a harness; --once answers and exits,
                                              --task names the idle-tasks task the session works on
 idle-harness stats <harness> [--json]        what its tasks took, and what its own tools cost and did
+idle-harness improve <harness>               an improvement session: it reads what many tasks took and changes the
+                                             harness where a pattern holds; it also starts on its own every
+                                             "improveEvery" approved tasks, set in the harness's config.json
 
 In a chat, the human reviews a piece of work: /approve [1-5] [note], /rate <1-5> [note] later, /reject <reason>.
 idle-harness versions <harness>              the versions of its folder
@@ -58,17 +62,23 @@ function review(line: string, task?: string): { text: string; review: Review } |
   const note = ((scored ? scored[2] : said[2]) ?? '').trim();
   if (verdict === 'rated' && !rating) return 'rate with a number from 1 to 5: /rate 4 the tests read well';
   if (verdict === 'rejected' && !note) return 'say why: /reject the totals are still off for refunds';
-  const text = verdict === 'approved' ? `The human approved the work${rating ? ` and rated it ${rating} of 5` : ''}${note ? `: ${note}` : '.'}`
+  const words = verdict === 'approved' ? `The human approved the work${rating ? ` and rated it ${rating} of 5` : ''}${note ? `: ${note}` : '.'}`
     : verdict === 'rated' ? `The human rated the work ${rating} of 5${note ? `: ${note}` : '.'}`
     : `The human rejected the work: ${note}`;
+  // The task is done once approved: what the human said goes onto it, and whoever drove it looks back.
+  const retro = 'a retrospective: what went well and what was friction, put down to a process or a tool, never to yourself, citing the turns that show it (session#turn)';
+  const text = verdict !== 'approved' ? (verdict === 'rejected' ? `${words}\n\nThe work is open again.` : words)
+    : task ? `${words}\n\nPut this on task ${task} as its outcome (idle task --id ${task} --outcome "…"), then write ${retro}, on the same task (idle memory --kind retro --task ${task}). If idle-tasks has no task ${task}, do neither and give the retrospective in your answer.`
+    : `${words}\n\nWrite ${retro}. It belongs in your answer: this work has no idle-tasks task.`;
   return { text, review: { verdict, ...(rating ? { rating } : {}), note, ...(task ? { task } : {}) } };
 }
 
 function chat() {
   const once = Boolean(flag('--once', false));
-  const task = flag('--task', true);
   const session = flag('--session', true) ?? `${new Date().toISOString().replace(/\D/g, '').slice(0, 12)}-${Math.random().toString(36).slice(2, 6)}`;
   const dir = sessionDir(name, session);
+  // A session keeps the task it was started for.
+  const task = flag('--task', true) ?? read(dir).at(-1)?.task;
   mkdirSync(dir, { recursive: true });
   // A session that is already running is talked to, not started a second time.
   const running = holder(dir);
@@ -129,7 +139,10 @@ try {
     process.exit(last?.failed ? 1 : 0);
   } else if (!existsSync(harnessDir(name))) throw new Error(`there is no harness named ${name}`);
   else if (command === 'versions') process.stdout.write(`${versions.list(harnessDir(name))}\n`);
-  else if (command === 'stats') process.stdout.write(`${report(name, rest.includes('--json'))}\n`);
+  else if (command === 'improve') {
+    rest.push('--session', prepare(name), '--once');
+    chat();
+  } else if (command === 'stats') process.stdout.write(`${report(name, rest.includes('--json'))}\n`);
   else if (command === 'restore') process.stdout.write(`${name} is back at ${rest[0]}; that is now version ${versions.restore(harnessDir(name), rest[0])}\n`);
   else throw new Error(`there is no command named ${command}\n\n${USAGE}`);
 } catch (error: any) {

@@ -7,8 +7,18 @@ import { join } from 'node:path';
 import { harnessDir } from './home.ts';
 import { read } from './record.ts';
 import { BARE } from './tools.ts';
+import * as versions from './versions.ts';
+import type { Assessment, Declaration } from './versions.ts';
 
 export type Session = { id: string; entries: any[] };
+
+// Improvement sessions are the platform loop's own work: their cost is kept apart from the tasks'.
+export const improving = (session: string) => session.startsWith('improve-');
+
+// Tasks set against one declared change: the ones started before it and the ones started after, by what they took to
+// reach approval and how they were rated.
+export type Side = { tasks: number; approved: number; toApproval: number | null; rating: number | null };
+export type Change = { version: string; at: string; declaration: Declaration; assessments: Assessment[]; before: Side; after: Side };
 
 // What one task took: everything spent while it was the task in hand, across sessions and harness versions. toApproval
 // is what it had cost when the human approved it; a rejection reopens it, and the next approval counts. commits are the
@@ -49,11 +59,17 @@ function taskMove(call: any): { task: string; status: string } | null {
 
 // Which task each turn belongs to: the task the session was started for, or the one it claimed, until it submits or
 // lets it go. Turns with no task are unattributed and stay so.
-export function attribute(all: Session[]): { tasks: TaskTook[]; unattributed: { cost: number; turns: number; sessions: string[] } } {
+export function attribute(all: Session[]): { tasks: TaskTook[]; unattributed: { cost: number; turns: number; sessions: string[] }; platform: { cost: number; sessions: string[] } } {
   const tasks = new Map<string, TaskTook>();
   const unattributed = { cost: 0, turns: 0, sessions: new Set<string>() };
+  const platform = { cost: 0, sessions: [] as string[] };
   const at = (task: string, when: string) => tasks.get(task) ?? tasks.set(task, { task, cost: 0, turns: 0, input: 0, cached: 0, output: 0, sessions: [], versions: [], attempts: 0, submits: 0, rejections: 0, commits: [], first: when, last: when }).get(task)!;
   for (const session of all) {
+    if (improving(session.id)) {
+      platform.cost += session.entries.reduce((sum, entry) => sum + (entry.cost ?? 0), 0);
+      platform.sessions.push(session.id);
+      continue;
+    }
     const bound: string | undefined = session.entries[0]?.task; // the task the session was started for, if any
     let current = bound;
     let submitted: string | undefined; // the task this session last handed in, which a review without a task is for
@@ -96,7 +112,7 @@ export function attribute(all: Session[]): { tasks: TaskTook[]; unattributed: { 
       }
     }
   }
-  return { tasks: [...tasks.values()], unattributed: { cost: unattributed.cost, turns: unattributed.turns, sessions: [...unattributed.sessions] } };
+  return { tasks: [...tasks.values()], unattributed: { cost: unattributed.cost, turns: unattributed.turns, sessions: [...unattributed.sessions] }, platform };
 }
 
 // Every version of every tool the sessions wrote: a session that writes tools/<name>.ts makes a version of it, and the
@@ -136,6 +152,23 @@ export function controlLoops(all: Session[]): LoopVersion[] {
   return versions;
 }
 
+// How often each skill was loaded, in how many sessions: what fires on nearly every task belongs in the core.
+export function skillUses(all: Session[]): { skill: string; loads: number; sessions: number }[] {
+  const uses = new Map<string, { loads: number; sessions: Set<string> }>();
+  for (const session of all) {
+    for (const call of session.entries.flatMap((e) => e.calls ?? [])) {
+      if (call?.block !== 'tool' || call.call?.function?.name !== 'skill') continue;
+      let name = '';
+      try { name = String(JSON.parse(call.call.function.arguments).name ?? ''); } catch { /* not JSON */ }
+      const use = name && (uses.get(name) ?? uses.set(name, { loads: 0, sessions: new Set() }).get(name)!);
+      if (!use) continue;
+      use.loads++;
+      use.sessions.add(session.id);
+    }
+  }
+  return [...uses].map(([skill, use]) => ({ skill, loads: use.loads, sessions: use.sessions.size })).sort((a, b) => b.loads - a.loads);
+}
+
 // Per version of the harness: how many turns ran on it and what they cost.
 export function byVersion(all: Session[]): { version: string; turns: number; cost: number; first: string }[] {
   const out = new Map<string, { version: string; turns: number; cost: number; first: string }>();
@@ -148,15 +181,36 @@ export function byVersion(all: Session[]): { version: string; turns: number; cos
   return [...out.values()].sort((a, b) => a.first.localeCompare(b.first));
 }
 
+// Every declared change, with the tasks before and after it. Noise is real: a trend over many tasks counts, not one.
+export function changes(harness: string, tasks: TaskTook[]): Change[] {
+  const side = (list: TaskTook[]): Side => {
+    const approved = list.filter((t) => t.approved);
+    const rated = approved.filter((t) => t.rating);
+    const mean = (values: number[]) => (values.length ? values.reduce((a, b) => a + b, 0) / values.length : null);
+    return { tasks: list.length, approved: approved.length, toApproval: mean(approved.map((t) => t.toApproval ?? 0)), rating: mean(rated.map((t) => t.rating!)) };
+  };
+  return versions.history(harnessDir(harness)).flatMap((v) => v.declarations.map((declaration) => ({
+    version: v.version, at: v.at, declaration, assessments: v.assessments,
+    before: side(tasks.filter((t) => t.first < v.at)), after: side(tasks.filter((t) => t.first >= v.at)),
+  })));
+}
+
+// Versions working sessions saved without saying why: changes improvement has yet to judge.
+export const undeclared = (harness: string) => versions.history(harnessDir(harness)).filter((v) => !v.declarations.length && / turn \d+$/.test(v.why));
+
 // The whole reading, for the human: as text, or as JSON for whatever reads it next.
 export function report(harness: string, json = false): string {
   const all = sessions(harness);
-  const { tasks, unattributed } = attribute(all);
+  const { tasks, unattributed, platform } = attribute(all);
   const loops = controlLoops(all);
   const versions = byVersion(all);
-  if (json) return JSON.stringify({ harness, tasks, unattributed, loops, versions }, null, 2);
+  const declared = changes(harness, tasks);
+  const skills = skillUses(all);
+  const loose = undeclared(harness);
+  if (json) return JSON.stringify({ harness, tasks, unattributed, platform, loops, skills, versions, changes: declared, undeclared: loose }, null, 2);
   const money = (n: number) => `$${n.toFixed(4)}`;
   const share = (part: number, whole: number) => (whole ? `${Math.round((100 * part) / whole)}%` : '-');
+  const sided = (side: Side) => `${side.tasks} tasks, ${side.approved} approved${side.toApproval === null ? '' : ` for ${money(side.toApproval)} each`}${side.rating === null ? '' : `, rated ${side.rating.toFixed(1)}`}`;
   return [
     `${harness}: ${all.length} sessions, ${money(all.flatMap((s) => s.entries).reduce((t, e) => t + (e.cost ?? 0), 0))}`,
     '',
@@ -167,7 +221,19 @@ export function report(harness: string, json = false): string {
     'Control loops — every version of a tool a session built',
     ...(loops.length ? loops.map((l) => `  ${l.tool} from ${l.session}: ${l.lines || '?'} lines, ${money(l.buildCost)} to build, used ${l.uses}×${l.uses ? ` (answers ${Math.round(l.answerChars / l.uses)} characters, ${l.problems} reporting a problem)` : ''}${l.tasks.length ? `, for ${l.tasks.join(', ')}` : ''}`) : ['  none']),
     '',
+    `Skills — loaded how often, of ${all.length - platform.sessions.length} working sessions`,
+    ...(skills.length ? skills.map((k) => `  ${k.skill}: ${k.loads} loads in ${k.sessions} sessions`) : ['  none']),
+    '',
     'Harness versions',
     ...versions.map((v) => `  ${v.version}: ${v.turns} turns, ${money(v.cost)}`),
+    '',
+    'Declared changes — the tasks started before and after each',
+    ...(declared.length ? declared.flatMap((c) => [
+      `  ${c.version} (${c.declaration.scope}) ${c.declaration.change} — expects: ${c.declaration.expect}`,
+      `    before: ${sided(c.before)} · after: ${sided(c.after)}${c.assessments.length ? ` · assessed ${c.assessments.at(-1)!.verdict}: ${c.assessments.at(-1)!.signals}` : ''}`,
+    ]) : ['  none']),
+    `  undeclared versions from working sessions: ${loose.length ? loose.map((v) => v.version).join(', ') : 'none'}`,
+    '',
+    `Improvement: ${platform.sessions.length} sessions, ${money(platform.cost)}`,
   ].join('\n');
 }

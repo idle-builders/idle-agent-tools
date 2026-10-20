@@ -14,6 +14,7 @@ export type Blocks = {
   version: string; // the version of the folder this turn runs
   cwd: string; // where the work is
   session: string;
+  n: number; // the turn's number in its session
   tools: ToolSpec[]; // every tool there is: the base's, and the harness's own
   tool(call: ToolCall): Promise<string>;
   model(context: Context, prompt: Message[]): Promise<Message>;
@@ -24,7 +25,7 @@ export type Blocks = {
 
 export type Turn = (context: Context, response: Message | null, arrived: Item[], base: Blocks) => Promise<Step> | Step;
 
-const system = (harness: string, cwd: string) => `You are working in ${cwd}.
+const system = (harness: string, cwd: string, session: string, record: string, memory: string) => `You are working in ${cwd}. This is session ${session}; its record, one entry per turn, is ${record}.
 
 You run inside a harness that is yours: the folder ${harness}. It starts empty. Change anything in it that makes your work better, faster or cheaper. The folder is loaded again at every turn, and every change is kept as a version: the versions tool lists them, shows one, and puts the folder back at one.
 
@@ -43,11 +44,17 @@ To change how a turn runs, write ${harness}/turn.ts:
 
 context is what the model is shown: { model, system, tools, messages }. response is the model's last message. arrived is what came in since: [{ from, at, text }]. Return the context and the messages to add for the next model call, or prompt: null to wait. base.tools lists every tool, base.tool(call) runs one, base.model(context, prompt) is an extra model call, base.versions lists, shows and restores. base.compact(context, options) compacts a context the base's way — clear old tool answers, then summarise — and options can change its limit, target, tail, keep (tools never cleared), instructions and pinned text. The base compacts on its own once the context passes its limit. If your turn or a tool of yours breaks, the base carries on without it and tells you.
 
+Every change to your folder declares itself: after making one, call declare with what friction it answers, what it changes, what it expects to get better, whether it is general or about this domain, and the records it rests on.
+
+To give yourself a skill — a way of solving a kind of problem that loads only when a task needs it — write ${harness}/skills/<name>/SKILL.md, starting with a frontmatter whose description says when it applies. The skill tool lists and loads them.
+
+What you should remember across sessions goes in ${harness}/memory/: one file per fact, and one line for each in memory/MEMORY.md, which every new session starts with. What other harnesses and people should know goes into idle-tasks as a memory.
+
 When the work is a git repository, commit each step that works, on a branch of its own: the record keeps the commit every turn starts from, so work can be run again from there.
 
-When you believe a piece of work is done, ask the human to review it: say what changed, how you checked it, and what you could not check. They answer with /approve and a rating from 1 to 5, or /reject and the reason.`;
+When you believe a piece of work is done, ask the human to review it: say what changed, how you checked it, and what you could not check. They answer with /approve and a rating from 1 to 5, or /reject and the reason.${memory ? `\n\nWhat you remember, from memory/MEMORY.md:\n\n${memory}` : ''}`;
 
-export const fresh = (harness: string, cwd: string): Context => ({ model: '', system: system(harness, cwd), tools: [], messages: [] });
+export const fresh = (harness: string, cwd: string, session: string, record: string, memory = ''): Context => ({ model: '', system: system(harness, cwd, session, record, memory), tools: [], messages: [] });
 
 // Run the tool calls, pass on what arrived, offer every tool there is, and wait when there is nothing to send.
 export async function turn(context: Context, response: Message | null, arrived: Item[], base: Blocks): Promise<Step> {

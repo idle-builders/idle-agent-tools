@@ -43,6 +43,34 @@ function known(version: string): string {
 
 export const show = (dir: string, version: string) => git(dir, 'show', '--stat', '--patch', '--format=%h  %cd  %s', known(version));
 
+// What a change says about itself, kept as a note on its version: what friction it answers, what it changes, what it
+// expects to get better, whether it is general or about this harness's domain, and the records it rests on. An
+// assessment, written later by improvement, says whether the change was kept and what the signals did.
+export type Declaration = { change: string; friction: string; expect: string; scope: 'general' | 'domain'; evidence: string[]; by: string; at: string };
+export type Assessment = { verdict: 'kept' | 'undone' | 'flagged'; signals: string; evidence: string[]; by: string; at: string };
+type Note = ({ kind: 'declaration' } & Declaration) | ({ kind: 'assessment' } & Assessment);
+
+// Saves what the folder holds now and notes the declaration on that version.
+export function declare(dir: string, declaration: Declaration, why: string): string {
+  const version = save(dir, why);
+  git(dir, 'notes', 'append', '-m', JSON.stringify({ kind: 'declaration', ...declaration }), version);
+  return version;
+}
+
+export function assess(dir: string, version: string, assessment: Assessment) {
+  git(dir, 'notes', 'append', '-m', JSON.stringify({ kind: 'assessment', ...assessment }), git(dir, 'rev-parse', '--short', known(version)));
+}
+
+// Every version, oldest first, with what was noted on it.
+export function history(dir: string): { version: string; at: string; why: string; declarations: Declaration[]; assessments: Assessment[] }[] {
+  return git(dir, 'log', '--reverse', '--format=%h%x00%cI%x00%s%x00%N%x1e').split('\x1e').map((row) => row.trim()).filter(Boolean).map((row) => {
+    const [version, at, why, notes = ''] = row.split('\x00');
+    const all: Note[] = notes.split('\n').flatMap((line) => { try { return [JSON.parse(line)]; } catch { return []; } });
+    const pick = <K extends Note['kind']>(kind: K) => all.filter((note) => note.kind === kind).map(({ kind: _, ...rest }) => rest) as any[];
+    return { version, at, why, declarations: pick('declaration'), assessments: pick('assessment') };
+  });
+}
+
 // Going back is itself a version, so nothing is ever lost.
 export function restore(dir: string, version: string): string {
   save(dir, `before going back to ${known(version)}`);

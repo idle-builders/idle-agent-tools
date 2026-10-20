@@ -3,10 +3,11 @@
 
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { registerHooks } from 'node:module';
-import { join } from 'node:path';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { KEPT } from './tools.ts';
-import type { Tool } from './tools.ts';
+import type { Skill, Tool } from './tools.ts';
 import type { Turn } from './turn.ts';
 
 // Node keeps the first copy of every file it imports. A harness's files carry the folder's version instead,
@@ -54,7 +55,32 @@ export async function tools(dir: string, version: string): Promise<{ tools: Tool
   return { tools: found, problems };
 }
 
+// The skills a harness can load: its own in skills/<name>/SKILL.md, and those in the folders its config.json names
+// ("skills": ["~/.claude/skills", …]), which is how skills from plugins are reused. Its own win on a name. A skill's
+// description, from its frontmatter, says when it applies; the rest loads only when a task needs it.
+export function skills(dir: string): Skill[] {
+  const found = new Map<string, Skill>();
+  const folders = [join(dir, 'skills'), ...(settings(dir).skills ?? []).map((folder) => resolve(dir, folder.replace(/^~(?=\/|$)/, homedir())))];
+  for (const folder of folders) {
+    let names: string[] = [];
+    try { names = readdirSync(folder); } catch { continue; }
+    for (const name of names.sort()) {
+      const path = join(folder, name, 'SKILL.md');
+      if (found.has(name) || !existsSync(path)) continue;
+      const head = readFileSync(path, 'utf8').match(/^---\n([\s\S]*?)\n---/)?.[1] ?? '';
+      const description = head.match(/^description:\s*(.+)$/m)?.[1].trim().replace(/^(['"])(.*)\1$/, '$2') ?? '';
+      found.set(name, { name, description, path });
+    }
+  }
+  return [...found.values()];
+}
+
+// What the harness remembers across sessions: memory/MEMORY.md, which every new session starts with.
+export function memory(dir: string): string {
+  try { return readFileSync(join(dir, 'memory', 'MEMORY.md'), 'utf8').slice(0, 10_000); } catch { return ''; }
+}
+
 // What the harness has set for itself. A config.json that cannot be read counts as none.
-export function settings(dir: string): { model?: string; contextLimit?: number } {
+export function settings(dir: string): { model?: string; contextLimit?: number; improveEvery?: number; skills?: string[] } {
   try { return JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')); } catch { return {}; }
 }

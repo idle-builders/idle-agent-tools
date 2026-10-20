@@ -18,6 +18,7 @@ const { BARE } = await import(`${root}/src/tools.ts`);
 const versions = await import(`${root}/src/versions.ts`);
 const analytics = await import(`${root}/src/analytics.ts`);
 const compaction = await import(`${root}/src/compact.ts`);
+const improvement = await import(`${root}/src/improve.ts`);
 
 const homes = [];
 process.on('exit', () => homes.forEach((home) => rmSync(home, { recursive: true, force: true })));
@@ -78,7 +79,7 @@ test('an empty harness works: the plain turn, the bare tools, a record of every 
   assert.equal(record[0].arrived[0].text, 'make a file');
   assert.equal(record[0].cost, 0.01);
   assert.equal(shown[0].model, 'some/model', 'an empty model in the context means the default');
-  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions']);
+  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions', 'declare', 'assess']);
   // A command carries the harness and its version into the record of work.
   assert.equal(record[1].calls[0].result.trim(), `harness/h@${record[1].version}`);
   assert.equal(record[1].response.content, 'made it');
@@ -128,7 +129,7 @@ test("a harness's own tool joins the registry one turn later; a broken one is le
 
   const record = read(sessionDir('h', 's'));
   assert.ok(!names(shown[1]).includes('shout'), 'not yet in the turn that wrote it');
-  assert.deepEqual(names(shown[2]), ['read', 'write', 'edit', 'bash', 'versions', 'shout']);
+  assert.deepEqual(names(shown[2]), ['read', 'write', 'edit', 'bash', 'versions', 'declare', 'assess', 'shout']);
   assert.match(shown[2].tools.find((tool) => tool.function.name === 'versions').function.description, /Earlier versions/, 'versions stays the base\'s');
   assert.match(said(shown[2]), /left out: tools\/broken\.ts/);
   assert.match(said(shown[2]), /left out: tools\/versions\.ts: versions is the base's/);
@@ -165,7 +166,7 @@ test('a turn cannot hurt the session: it works on copies, and a step that is not
 
   assert.ok(!said(shown[0]).includes('junk'));
   assert.match(said(shown[0]), /^go\n\[base\] Your turn threw.*no whole context/s);
-  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions']);
+  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions', 'declare', 'assess']);
 });
 
 test('a request the provider refuses goes to the plain turn, which builds it again from the originals', async () => {
@@ -363,11 +364,104 @@ test("the human's review: approved and rated, or rejected and reopened; analytic
   }
 
   const items = read(sessionDir('h', 's')).flatMap((entry) => entry.arrived).filter((item) => item.review);
-  assert.deepEqual(items.map((item) => [item.from, item.text]), [['review', 'The human rejected the work: the totals are off'], ['review', 'The human approved the work and rated it 4 of 5: much better']]);
-  assert.deepEqual(items[1].review, { verdict: 'approved', rating: 4, note: 'much better' });
+  assert.deepEqual(items.map((item) => [item.from, item.text.split('\n')[0]]), [['review', 'The human rejected the work: the totals are off'], ['review', 'The human approved the work and rated it 4 of 5: much better']]);
+  assert.match(items[1].text, /Put this on task T1 as its outcome \(idle task --id T1 --outcome "…"\), then write a retrospective: .+ \(idle memory --kind retro --task T1\)\. If idle-tasks has no task T1, do neither/);
+  assert.deepEqual(items[1].review, { verdict: 'approved', rating: 4, note: 'much better', task: 'T1' }, 'for the task the session was started for');
   const [task] = analytics.attribute(analytics.sessions('h')).tasks;
   assert.deepEqual([task.task, task.rejections, task.rating, +task.toApproval.toFixed(3), +task.cost.toFixed(3)], ['T1', 1, 4, 0.004, 0.006], 'what it cost up to the approval, not the turn that read it');
   assert.match(analytics.report('h'), /T1: approved for \$0\.0040, rated 4 after 1 rejections/);
+});
+
+test('a change declares itself on its version, with its evidence; improvement assesses it later; analytics sets the tasks before and after against it', async () => {
+  const { cwd, harness } = sandbox();
+  const probe = "export const description = 'Checks the work';\nexport const parameters = { type: 'object', properties: {} };\nexport const run = () => 'ok';";
+  const declaration = { change: 'a probe tool', friction: 'checking by hand', expect: 'cheaper checks', scope: 'domain' };
+  say('a', 'work on T1');
+  await run({ harness: 'h', session: 'a', cwd, once: true, task: 'T1', model: scripted(
+    [['write', { path: join(harness, 'tools/probe.ts'), content: probe }]],
+    [['declare', declaration]],
+    [['declare', { ...declaration, evidence: ['a#0', 'T1'] }]],
+  ).model });
+  const record = read(sessionDir('h', 'a'));
+  assert.match(record[2].calls[0].result, /^error: cite the records/);
+  assert.match(record[3].calls[0].result, /^declared on version [0-9a-f]+$/);
+  const version = record[3].calls[0].result.split(' ').at(-1);
+
+  say('improve-1', 'judge it');
+  await run({ harness: 'h', session: 'improve-1', cwd, once: true, model: scripted([['assess', { version, verdict: 'kept', signals: 'checks got cheaper', evidence: ['T1'] }]]).model });
+
+  const noted = versions.history(harness).find((v) => v.version === version);
+  assert.deepEqual([noted.declarations[0].change, noted.declarations[0].scope, noted.declarations[0].evidence, noted.declarations[0].by], ['a probe tool', 'domain', ['a#0', 'T1'], 'a#3']);
+  assert.deepEqual([noted.assessments[0].verdict, noted.assessments[0].by], ['kept', 'improve-1#1']);
+  const { tasks, platform } = analytics.attribute(analytics.sessions('h'));
+  assert.deepEqual(platform.sessions, ['improve-1'], 'improvement is the platform loop\'s cost, not a task\'s');
+  const [change] = analytics.changes('h', tasks);
+  assert.deepEqual([change.before.tasks, change.after.tasks], [1, 0]);
+  assert.deepEqual(analytics.undeclared('h'), [], 'the tool was saved by a turn and then declared on that version');
+  assert.match(analytics.report('h'), /\(domain\) a probe tool — expects: cheaper checks\n {4}before: 1 tasks, 0 approved · after: 0 tasks, 0 approved · assessed kept: checks got cheaper/);
+});
+
+test("skills load when a task needs them: the harness's own and those of folders it names, its own winning; analytics counts the loads", async () => {
+  const { home, cwd, harness } = sandbox();
+  const skill = (folder, name, description, body) => harnessFile(folder, `${name}/SKILL.md`, `---\nname: ${name}\ndescription: ${description}\n---\n${body}`);
+  skill(join(harness, 'skills'), 'refunds', 'When totals involve refunds', 'Refunds are negative lines.');
+  harnessFile(join(harness, 'skills'), 'refunds/example.md', 'an example');
+  skill(join(home, 'plugin-skills'), 'refunds', 'from a plugin', 'not this one');
+  skill(join(home, 'plugin-skills'), 'release', "'When shipping a release'", 'Tag, then push.');
+  harnessFile(harness, 'config.json', JSON.stringify({ skills: [join(home, 'plugin-skills')] }));
+  const { model, shown } = scripted([['skill', { name: 'refunds' }]], 'done');
+  say('s', 'go');
+  await run({ harness: 'h', session: 's', cwd, once: true, model });
+
+  const loader = shown[0].tools.find((tool) => tool.function.name === 'skill');
+  assert.match(loader.function.description, /- refunds: When totals involve refunds\n- release: When shipping a release$/);
+  const loaded = shown[1].messages.find((message) => message.role === 'tool').content;
+  assert.match(loaded, /Refunds are negative lines\.\n\nFiles beside it, in .+refunds:\n- example\.md$/);
+  assert.deepEqual(analytics.skillUses(analytics.sessions('h')), [{ skill: 'refunds', loads: 1, sessions: 1 }]);
+});
+
+test('a new session starts with what the harness remembers, and knows its own session and record', async () => {
+  const { cwd, harness } = sandbox();
+  harnessFile(harness, 'memory/MEMORY.md', '- [Refunds](refunds.md) — refunds are negative lines');
+  const { model, shown } = scripted('done');
+  say('s', 'go');
+  await run({ harness: 'h', session: 's', cwd, once: true, model });
+
+  assert.match(shown[0].system, /This is session s; its record, one entry per turn, is .+\/\.sessions\/s\/record\.jsonl\./);
+  assert.match(shown[0].system, /What you remember, from memory\/MEMORY\.md:\n\n- \[Refunds\]\(refunds\.md\) — refunds are negative lines$/);
+});
+
+test('improvement: a session of its own from a brief the base writes, by hand or every so many approved tasks', async () => {
+  const { home, cwd, harness } = sandbox();
+  const fake = await provider(() => says('nothing to change yet'));
+  try {
+    const first = cli(home, cwd, fake.url, ['chat', 'h', 'build it', '--session', 's', '--task', 'T1', '--once']);
+    assert.equal(await first.exit, 0, first.err);
+    const improve = cli(home, cwd, fake.url, ['improve', 'h']);
+    assert.equal(await improve.exit, 0, improve.err);
+    assert.equal(improve.out, 'nothing to change yet\n');
+  } finally {
+    fake.close();
+  }
+  const [session] = readdirSync(join(harness, '.sessions')).filter((id) => id.startsWith('improve-'));
+  const brief = read(sessionDir('h', session))[0].arrived[0];
+  assert.equal(brief.from, 'base');
+  assert.match(brief.text, /^Improvement session\. You do no task here/);
+  assert.match(brief.text, /T1: not approved · /);
+  assert.match(brief.text, /One mechanism per change\. After each, call declare/);
+
+  assert.equal(improvement.due('h'), false, 'not without improveEvery');
+  harnessFile(harness, 'config.json', JSON.stringify({ improveEvery: 1 }));
+  assert.equal(improvement.due('h'), false, 'nor without an approved task since the last improvement');
+  send(sessionDir('h', 's'), 'review', 'The human approved the work.', { verdict: 'approved', note: '' });
+  Object.assign(process.env, { OPENROUTER_API_KEY: 'test-key', IDLE_HARNESS_API: 'http://127.0.0.1:9', IDLE_HARNESS_MODEL: 'some/model' });
+  try {
+    await run({ harness: 'h', session: 's', cwd, once: true, model: scripted('thanks').model });
+  } finally {
+    for (const key of ['OPENROUTER_API_KEY', 'IDLE_HARNESS_API', 'IDLE_HARNESS_MODEL']) delete process.env[key];
+  }
+  assert.equal(readdirSync(join(harness, '.sessions')).filter((id) => id.startsWith('improve-')).length, 2, 'the approval made it due, and it started');
+  assert.equal(improvement.due('h'), false, 'and while it runs, no other starts');
 });
 
 test('analytics counts what each task took, from the task a session was started for or claimed, and every version of its tools', async () => {

@@ -1,7 +1,7 @@
 // The tools a turn can call: the base's bare ones, and how a harness's own tools join them.
 
 import { spawn } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { ToolSpec } from './model.ts';
 import type { Blocks } from './turn.ts';
@@ -92,14 +92,54 @@ export const BARE: Tool[] = [
     if (a.action === 'restore') return `the folder is back at ${a.version}; that is now version ${versions.restore(base.harness, a.version)}`;
     return 'error: action is list, show or restore';
   }),
+  tool('declare', 'Declare a change to your harness folder: one mechanism per change. Saves the folder as it is now and keeps the declaration with that version. A change that cites no records is not kept.', {
+    change: { type: 'string', description: 'what it changes' },
+    friction: { type: 'string', description: 'what friction it answers' },
+    expect: { type: 'string', description: 'what should get better: cost to an approved solution, its rating, or a cause of either' },
+    scope: { type: 'string', enum: ['general', 'domain'], description: 'general: about how an agent works, could carry over to another harness; domain: about this harness\'s work' },
+    evidence: { type: 'array', items: text, description: 'the records it rests on: session#turn, task ids, replays' },
+  }, ['change', 'friction', 'expect', 'scope'], (a, base) => {
+    const evidence = Array.isArray(a.evidence) ? a.evidence.map(String).filter((e: string) => e.trim()) : [];
+    if (!evidence.length) return 'error: cite the records the change rests on in evidence: session#turn, task ids, replays';
+    if (a.scope !== 'general' && a.scope !== 'domain') return 'error: scope is general or domain';
+    const version = versions.declare(base.harness, { change: a.change, friction: a.friction, expect: a.expect, scope: a.scope, evidence, by: `${base.session}#${base.n}`, at: new Date().toISOString() }, `${base.session} declares: ${a.change}`.slice(0, 120));
+    return `declared on version ${version}`;
+  }),
+  tool('assess', 'Assess an earlier declared change against what happened since: kept, undone, or flagged as not paying off. Undoing or removing it is a change of its own.', {
+    version: text,
+    verdict: { type: 'string', enum: ['kept', 'undone', 'flagged'] },
+    signals: { type: 'string', description: 'what cost to approval, ratings and their causes did after it' },
+    evidence: { type: 'array', items: text, description: 'the records it rests on' },
+  }, ['version', 'verdict', 'signals'], (a, base) => {
+    const evidence = Array.isArray(a.evidence) ? a.evidence.map(String).filter((e: string) => e.trim()) : [];
+    if (!evidence.length) return 'error: cite the records the assessment rests on in evidence';
+    if (!['kept', 'undone', 'flagged'].includes(a.verdict)) return 'error: verdict is kept, undone or flagged';
+    versions.assess(base.harness, a.version, { verdict: a.verdict, signals: a.signals, evidence, by: `${base.session}#${base.n}`, at: new Date().toISOString() });
+    return `assessed ${a.version}: ${a.verdict}`;
+  }),
 ];
 
-// Bare tools a harness cannot replace: the way back to an earlier version stays the base's.
-export const KEPT = new Set(['versions']);
+// Bare tools a harness cannot replace: the way back to an earlier version, and what its changes say, stay the base's.
+export const KEPT = new Set(['versions', 'declare', 'assess']);
 
-// The tools a turn can call: the bare ones, and the harness's own, which replace bare ones of the same name.
-export function registry(own: Tool[]): Tool[] {
+// A skill a harness can load: a way of solving a kind of problem, its description saying when it applies.
+export type Skill = { name: string; description: string; path: string };
+
+// Loading a skill: its SKILL.md, and the other files beside it, which the skill says when to read.
+export function skill(skills: Skill[]): Tool {
+  const list = skills.map((s) => `- ${s.name}: ${s.description || '(no description)'}`).join('\n');
+  return tool('skill', `Load a skill: a way of solving a kind of problem, with when it applies. Load one when a task needs it.\n${list}`, { name: { type: 'string', enum: skills.map((s) => s.name) } }, ['name'], (a) => {
+    const found = skills.find((s) => s.name === a.name);
+    if (!found) return `error: there is no skill named ${a.name}`;
+    const others = readdirSync(dirname(found.path), { recursive: true }).map(String).filter((file) => file !== 'SKILL.md');
+    return `${readFileSync(found.path, 'utf8')}${others.length ? `\n\nFiles beside it, in ${dirname(found.path)}:\n${others.map((file) => `- ${file}`).join('\n')}` : ''}`;
+  });
+}
+
+// The tools a turn can call: the bare ones, the skill loader when there are skills, and the harness's own, which
+// replace those of the same name.
+export function registry(own: Tool[], skills: Skill[] = []): Tool[] {
   const mine = own.filter((t) => !KEPT.has(t.spec.function.name));
   const names = new Set(mine.map((t) => t.spec.function.name));
-  return [...BARE.filter((t) => !names.has(t.spec.function.name)), ...mine];
+  return [...BARE, ...(skills.length ? [skill(skills)] : [])].filter((t) => !names.has(t.spec.function.name)).concat(mine);
 }

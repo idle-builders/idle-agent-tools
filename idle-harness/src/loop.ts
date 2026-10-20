@@ -6,6 +6,8 @@ import { compact, LIMIT, measure, size, spill } from './compact.ts';
 import type { Compaction, Options as Compacting, Where } from './compact.ts';
 import * as harness from './harness.ts';
 import { harnessDir, sessionDir, user } from './home.ts';
+import { improving } from './analytics.ts';
+import * as improvement from './improve.ts';
 import { model as openrouter, refused, tooLong } from './model.ts';
 import type { Context, Message, Model, Reply } from './model.ts';
 import { append, claim, read, take } from './record.ts';
@@ -40,13 +42,14 @@ type Compactor = (context: Context, options: Compacting, trigger: Where['trigger
 
 // The building blocks for one turn. Every call is written down, so a turn can later be replayed from its record.
 // `ran` is shared with the plain turn that takes over from a broken one, so no tool call runs twice.
-function blocks(o: Options, cwd: string, version: string, tools: Tool[], ran: Map<string, string>, calls: any[], compactor: Compactor): Blocks {
+function blocks(o: Options, n: number, cwd: string, version: string, tools: Tool[], ran: Map<string, string>, calls: any[], compactor: Compactor): Blocks {
   const base: Blocks = {
     name: o.harness,
     harness: harnessDir(o.harness),
     version,
     cwd,
     session: o.session,
+    n,
     tools: tools.map((t) => t.spec),
     async tool(given) {
       // A turn may build a call itself, in whatever shape it guessed. The record keeps the one shape the model uses.
@@ -99,7 +102,7 @@ async function loop(o: Options, record: string) {
   let last = earlier.at(-1);
   const cwd: string = last?.cwd ?? o.cwd;
   const task: string | undefined = o.task ?? last?.task;
-  let context: Context = last?.context ?? fresh(dir, cwd);
+  let context: Context = last?.context ?? fresh(dir, cwd, o.session, `${record}/record.jsonl`, harness.memory(dir));
   let response: Message | null = last?.response ?? null;
   const told = new Set<string>(); // the agent hears of each problem once per version, not at every turn
   // What the provider last read, so the size of the next request is counted rather than guessed.
@@ -139,9 +142,9 @@ async function loop(o: Options, record: string) {
       compactions.push({ n, by, reclaimed: done.entry.before - done.entry.after });
       return { context: { ...done.context, model: c.model }, entry: done.entry };
     };
-    const base = blocks(o, cwd, version, registry(own.tools), ran, calls, compactor);
+    const base = blocks(o, n, cwd, version, registry(own.tools, harness.skills(dir)), ran, calls, compactor);
     // The plain turn that takes over uses only the base's own tools, so a broken tool cannot block it.
-    const takeOver = () => plain(context, response, arrived, blocks(o, cwd, version, BARE, ran, calls, compactor));
+    const takeOver = () => plain(context, response, arrived, blocks(o, n, cwd, version, BARE, ran, calls, compactor));
     let phase: 'turn' | 'model' = 'turn';
     let sent: Context | undefined;
     stopping = (why) => {
@@ -225,6 +228,8 @@ async function loop(o: Options, record: string) {
     append(record, last, context);
     stopping = null;
     done();
+    // An approval may be the one that makes improvement due; it starts in a process of its own.
+    if (!improving(o.session) && arrived.some((item) => item.review?.verdict === 'approved') && improvement.due(o.harness)) improvement.start(o.harness);
     context = sent;
     response = reply?.message ?? null;
     seen = reply?.usage?.prompt_tokens ? { tokens: Number(reply.usage.prompt_tokens), messages: sent.messages } : undefined;
