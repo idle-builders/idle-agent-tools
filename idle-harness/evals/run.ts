@@ -1,22 +1,21 @@
 // Runs evals through a real model: each scenario a few times, in throwaway harnesses, the way a user would.
 //
-//   node idle-harness/evals/run.ts [E1 E2 …] [--runs <n>] [--keep] [--structure open|session|frozen] [--improvement plain|weighed|platform] [--seed] [--no-sandbox]
+//   node idle-harness/evals/run.ts [E1 E2 …] [--runs <n>] [--keep] [--structure layered|open|frozen] [--seed] [--no-sandbox]
 //
 // Every run writes its result to evals/results/. --keep leaves the harnesses and the project copy in place.
-// --structure says what becomes of the changes working sessions make to their harness (see Structure); --improvement
-// what an improvement session is given (see Improvement). --seed starts the harness as one specialised on the work
-// would start, where the eval says what that is. Sessions run sandboxed unless --no-sandbox (see sandbox).
+// --structure says what becomes of the changes working sessions make (see Structure). Improvement sessions start as
+// the base starts them, from its brief. --seed starts the harness as one specialised on the work would start, where
+// the eval says what that is. Sessions run sandboxed unless --no-sandbox (see sandbox).
 
 import { spawn, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { harnessDir, sessionDir } from '../src/home.ts';
 import { holder } from '../src/record.ts';
-import * as versions from '../src/versions.ts';
-import { ledger, platform, Run, told, weighed } from './scenario.ts';
-import type { Check, Improvement, Scenario, Structure } from './scenario.ts';
+import { ledger, Run, told } from './scenario.ts';
+import type { Check, Scenario, Structure } from './scenario.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const bin = join(here, '..', 'bin', 'idle-harness.mjs');
@@ -45,11 +44,13 @@ function sandbox(run: Run): string[] {
   return ['sandbox-exec', '-p', profile];
 }
 
-// One session: the plain front end with --once, as a user would start it. Too long counts as failed, and so does
-// a session whose loop is still running after its front end ended: the run would read it half-done.
-function session(run: Run, cwd: string, harness: string, n: number, message: string, minutes: number): Promise<{ code: number | null; timedOut: boolean; leftRunning: boolean }> {
+// One session: the plain front end with --once, as a user would start it, or an improvement session as the base
+// starts one (no message). Too long counts as failed, and so does a session whose loop is still running after its
+// front end ended: the run would read it half-done.
+function session(run: Run, cwd: string, harness: string, n: number, message: string | null, minutes: number): Promise<{ code: number | null; timedOut: boolean; leftRunning: boolean }> {
   return new Promise((done) => {
-    const [command, ...args] = [...sandbox(run), process.execPath, bin, 'chat', harness, message, '--session', `s${n}`, '--once'];
+    const how = message === null ? ['improve', harness, '--session', run.id(n)] : ['chat', harness, message, '--session', run.id(n), '--once'];
+    const [command, ...args] = [...sandbox(run), process.execPath, bin, ...how];
     const child = spawn(command, args, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; child.kill('SIGTERM'); }, minutes * 60_000);
@@ -57,7 +58,7 @@ function session(run: Run, cwd: string, harness: string, n: number, message: str
     child.on('exit', async (code) => {
       clearTimeout(timer);
       await new Promise((settle) => setTimeout(settle, 500)); // the session's own process ends just after its front end
-      const pid = holder(sessionDir(harness, `s${n}`));
+      const pid = holder(sessionDir(harness, run.id(n)));
       if (pid) process.kill(pid, 'SIGTERM');
       done({ code, timedOut, leftRunning: Boolean(pid) });
     });
@@ -73,33 +74,31 @@ function project(name: string, cwd: string) {
   git('commit', '-q', '-m', 'the project as the eval starts it');
 }
 
-// Where changes do not stay, the agent is told so with its message.
-const notice = {
-  work: ' Changes you make to your harness folder last for this session only: afterwards it goes back to how it was, and improvement sessions decide what stays.',
-  improvement: " Working sessions' own changes to the harness lasted for their session only; they are in your version history (the versions tool), for you to take up where the evidence across sessions supports them.",
-};
+// Open: working sessions change the harness itself, as the base did before layers.
+function open(dir: string) {
+  mkdirSync(dir, { recursive: true });
+  let config = {};
+  try { config = JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')); } catch { /* none yet */ }
+  writeFileSync(join(dir, 'config.json'), JSON.stringify({ ...config, layers: false }));
+}
 
 const sum = (entries: any[]) => +entries.reduce((total, entry) => total + (entry.cost ?? 0), 0).toFixed(4);
 
-async function once(scenario: Scenario, attempt: number, keep: boolean, structure: Structure, improvement: Improvement, seeded: boolean) {
+async function once(scenario: Scenario, attempt: number, keep: boolean, structure: Structure, seeded: boolean) {
   const run = new Run(`eval-${scenario.id.toLowerCase()}-${Date.now().toString(36)}-${attempt}`, '');
   run.cwd = mkdtempSync(join(tmpdir(), `${run.name}-`));
   run.structure = structure;
-  run.improvement = improvement;
   const started = Date.now();
   project(scenario.project, run.cwd);
   await scenario.setup?.(run);
   if (seeded) scenario.seed?.(run);
   const sessions: Awaited<ReturnType<typeof session>>[] = [];
   const minutes = scenario.minutes ?? 15;
-  const fresh = (step: Scenario['steps'][number]): step is string | { message: string; harness?: string; improve?: boolean; in?: string } =>
-    typeof step === 'string' || (typeof step === 'object' && 'message' in step && !(structure === 'frozen' && step.improve));
+  const fresh = (step: Scenario['steps'][number]): step is string | { message: string; harness?: string; in?: string } | { improve: true; harness?: string } =>
+    typeof step === 'string' || (typeof step === 'object' && ('message' in step || ('improve' in step && structure !== 'frozen')));
   const messages = scenario.steps.filter(fresh).length;
-  // Where changes do not stay, the harness goes back once the task is done, reopenings included.
-  let done: (() => void) | null = null;
-  const finish = () => { done?.(); done = null; };
   for (const step of scenario.steps) {
-    if (typeof step === 'function') { finish(); await step(run); continue; }
+    if (typeof step === 'function') { await step(run); continue; }
     if (typeof step === 'object' && 'reopen' in step) {
       const n = run.sessions.size;
       const why = n ? step.reopen(run, n) : null;
@@ -111,8 +110,8 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
       continue;
     }
     if (!fresh(step)) continue;
-    finish();
-    const { message, harness, improve, in: place } = typeof step === 'string' ? { message: step, harness: undefined, improve: false, in: undefined } : step;
+    const { message, harness, improve, in: place } = typeof step === 'string' ? { message: step, harness: undefined, improve: false, in: undefined }
+      : 'improve' in step ? { message: null, harness: step.harness, improve: true, in: undefined } : { ...step, improve: false };
     if (place && !run.places.has(place)) {
       run.places.set(place, mkdtempSync(join(tmpdir(), `${run.name}-${place.replace(/\W/g, '-')}-`)));
       project(place.split('#')[0], run.places.get(place)!);
@@ -122,16 +121,9 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
     run.where.set(n, run.at(place));
     if (improve) run.improvements.add(n);
     process.stderr.write(`  session ${n}/${messages}${harness ? ` in harness ${harness}` : ''}${place ? ` in ${place}` : ''}${improve ? ' (improvement)' : ''}\n`);
-    if (structure !== 'open') {
-      const dir = harnessDir(run.harnessName(harness));
-      versions.init(dir);
-      const before = versions.save(dir, 'as the eval left it');
-      if (structure === 'frozen' || !improve) done = () => { versions.restore(dir, before); };
-    }
-    const given = !improve ? '' : improvement === 'weighed' ? weighed(run, n) : improvement === 'platform' ? platform(run, n) : '';
-    sessions.push(await session(run, run.at(place), run.harnessName(harness), n, `${message}${structure === 'open' ? '' : improve ? notice.improvement : notice.work}${given}`, minutes));
+    if (structure === 'open') open(harnessDir(run.harnessName(harness)));
+    sessions.push(await session(run, run.at(place), run.harnessName(harness), n, message, minutes));
   }
-  finish();
   let checks: Check[];
   try {
     checks = await scenario.check(run);
@@ -147,7 +139,7 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
   const entries = [...run.sessions.keys()].flatMap((n) => run.records(n));
   const changes = ledger(run);
   const result = {
-    eval: scenario.id, title: scenario.title, intents: scenario.intents, structure, improvement, seeded, sandboxed, attempt, harness: run.name, project: run.cwd, places: Object.fromEntries(run.places),
+    eval: scenario.id, title: scenario.title, intents: scenario.intents, structure, seeded, sandboxed, attempt, harness: run.name, project: run.cwd, places: Object.fromEntries(run.places),
     at: new Date(started).toISOString(), minutes: +((Date.now() - started) / 60_000).toFixed(1),
     model: entries.find((entry) => entry.model)?.model ?? null,
     cost: +(sum(entries) + run.readingCost).toFixed(4), readingCost: +run.readingCost.toFixed(4),
@@ -172,11 +164,9 @@ const keep = option('--keep') !== undefined;
 const sandboxed = !(args.includes('--no-sandbox') && args.splice(args.indexOf('--no-sandbox'), 1)) && existsSync('/usr/bin/sandbox-exec');
 const seeded = args.includes('--seed') && Boolean(args.splice(args.indexOf('--seed'), 1));
 const runs = Number(option('--runs') ?? 1);
-const structure = (option('--structure') ?? 'open') as Structure;
-if (!['open', 'session', 'frozen'].includes(structure)) throw new Error('--structure is open, session or frozen');
-const improvement = (option('--improvement') ?? 'plain') as Improvement;
-if (!['plain', 'weighed', 'platform'].includes(improvement)) throw new Error('--improvement is plain, weighed or platform');
-const variant = [structure === 'open' ? '' : structure, improvement === 'plain' ? '' : improvement, seeded ? 'seeded' : ''].filter(Boolean).join(', ');
+const structure = (option('--structure') ?? 'layered') as Structure;
+if (!['layered', 'open', 'frozen'].includes(structure)) throw new Error('--structure is layered, open or frozen');
+const variant = [structure === 'layered' ? '' : structure, seeded ? 'seeded' : ''].filter(Boolean).join(', ');
 const files = readdirSync(join(here, 'scenarios')).filter((file) => file.endsWith('.ts')).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 const scenarios: Scenario[] = [];
 for (const file of files) scenarios.push((await import(join(here, 'scenarios', file))).default);
@@ -186,7 +176,7 @@ for (const scenario of chosen) {
   const results = [];
   for (let attempt = 1; attempt <= runs; attempt++) {
     process.stderr.write(`${scenario.id} ${scenario.title} — run ${attempt}/${runs}${variant ? `, ${variant}` : ''}\n`);
-    const result = await once(scenario, attempt, keep, structure, improvement, seeded);
+    const result = await once(scenario, attempt, keep, structure, seeded);
     results.push(result);
     process.stdout.write(`${scenario.id}${variant ? ` (${variant})` : ''} run ${attempt}: ${result.passed ? 'PASS' : 'FAIL'} · ${result.turns} turns · $${result.cost.toFixed(4)} · ${result.minutes} min${result.tookOver ? ` · base took over ${result.tookOver}×` : ''}\n`);
     for (const c of result.checks) process.stdout.write(`  ${c.pass === null ? '·' : c.pass ? '✓' : '✗'} ${c.name}${c.detail ? ` — ${c.detail}` : ''}\n`);

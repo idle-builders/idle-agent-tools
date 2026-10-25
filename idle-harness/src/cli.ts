@@ -17,7 +17,8 @@ const USAGE = `idle-harness chat <harness> [message] [--session <id>] [--task <i
                                              talk to a harness; --once answers and exits,
                                              --task names the idle-tasks task the session works on
 idle-harness stats <harness> [--json]        what its tasks took, and what its own tools cost and did
-idle-harness improve <harness>               an improvement session: it reads what many tasks took and changes the
+idle-harness improve <harness> [--session <improve-…>]
+                                             an improvement session: it reads what many tasks took and changes the
                                              harness where a pattern holds; it also starts on its own every
                                              "improveEvery" approved tasks, set in the harness's config.json
 
@@ -140,7 +141,7 @@ try {
   } else if (!existsSync(harnessDir(name))) throw new Error(`there is no harness named ${name}`);
   else if (command === 'versions') process.stdout.write(`${versions.list(harnessDir(name))}\n`);
   else if (command === 'improve') {
-    rest.push('--session', prepare(name), '--once');
+    rest.push('--session', prepare(name, flag('--session', true)), '--once');
     chat();
   } else if (command === 'stats') process.stdout.write(`${report(name, rest.includes('--json'))}\n`);
   else if (command === 'restore') process.stdout.write(`${name} is back at ${rest[0]}; that is now version ${versions.restore(harnessDir(name), rest[0])}\n`);

@@ -79,9 +79,9 @@ test('an empty harness works: the plain turn, the bare tools, a record of every 
   assert.equal(record[0].arrived[0].text, 'make a file');
   assert.equal(record[0].cost, 0.01);
   assert.equal(shown[0].model, 'some/model', 'an empty model in the context means the default');
-  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions', 'declare', 'assess']);
-  // A command carries the harness and its version into the record of work.
-  assert.equal(record[1].calls[0].result.trim(), `harness/h@${record[1].version}`);
+  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions'], 'declaring is for what changes the harness itself');
+  // A command carries the harness, its version and the session's layer over it into the record of work.
+  assert.equal(record[1].calls[0].result.trim(), `harness/h@${record[1].version}+${record[1].layer}`);
   assert.equal(record[1].response.content, 'made it');
   assert.equal(record[2].response, null, 'with nothing left to do the turn waits, and no model is called');
   // The folder is still empty, and the base's records are not part of it.
@@ -91,16 +91,17 @@ test('an empty harness works: the plain turn, the bare tools, a record of every 
   assert.ok(raw[1].keep > 0 && raw[1].context.messages.length < record[1].context.messages.length);
 });
 
-test('a change to the harness is saved as a version and is live one turn later', async () => {
+test("a working session's change goes to its layer, is saved as a version and is live one turn later", async () => {
   const { cwd, harness } = sandbox();
+  const layer = join(sessionDir('h', 's'), 'layer');
   const own = `import { mark } from './mark.ts';
 export async function turn(context, response, arrived, base) {
   const step = await base.turn(context, response, arrived);
   return { ...step, context: { ...step.context, system: step.context.system.split('\\n# ')[0] + '\\n# ' + mark } };
 }`;
   const { model, shown } = scripted(
-    [['write', { path: join(harness, 'turn.ts'), content: own }], ['write', { path: join(harness, 'mark.ts'), content: "export const mark = 'one';" }]],
-    [['edit', { path: join(harness, 'mark.ts'), old: 'one', new: 'two' }]],
+    [['write', { path: join(layer, 'turn.ts'), content: own }], ['write', { path: join(layer, 'mark.ts'), content: "export const mark = 'one';" }]],
+    [['edit', { path: join(layer, 'mark.ts'), old: 'one', new: 'two' }]],
   );
   say('s', 'specialise');
   await run({ harness: 'h', session: 's', cwd, once: true, model });
@@ -109,18 +110,36 @@ export async function turn(context, response, arrived, base) {
   assert.ok(!shown[1].system.includes('\n# '), 'the turn that wrote the files still ran the old harness');
   assert.ok(shown[2].system.endsWith('\n# one'), 'one turn later the harness runs its own turn');
   assert.ok(record[3].context.system.endsWith('\n# two'), 'a file the turn imports is loaded again with the new version');
-  assert.equal(new Set(record.map((entry) => entry.version)).size, 3);
-  assert.equal(versions.list(harness).split('\n').length, 3);
+  assert.equal(new Set(record.map((entry) => entry.layer)).size, 3);
+  assert.equal(versions.list(layer).split('\n').length, 3);
+  assert.equal(versions.list(harness).split('\n').length, 1, 'the harness itself is as it was');
+});
+
+test("what a working session writes into the harness itself is moved to its layer; what the human changed there before is kept", async () => {
+  const { cwd, harness } = sandbox();
+  versions.init(harness);
+  harnessFile(harness, 'config.json', JSON.stringify({ model: 'mine/model' }));
+  const { model, shown } = scripted([['write', { path: join(harness, 'notes.md'), content: 'learned' }]], 'ok');
+  say('s', 'go');
+  await run({ harness: 'h', session: 's', cwd, once: true, model });
+
+  assert.equal(readFileSync(join(sessionDir('h', 's'), 'layer', 'notes.md'), 'utf8'), 'learned');
+  assert.ok(!existsSync(join(harness, 'notes.md')), 'the harness is put back');
+  assert.match(said(shown.at(-1)), /only improvement sessions change, so your changes were moved to your layer .+: notes\.md\./);
+  assert.match(versions.list(harness), /as s found it/);
+  assert.equal(readFileSync(join(harness, 'config.json'), 'utf8'), JSON.stringify({ model: 'mine/model' }), "and the human's own change stays");
 });
 
 test("a harness's own tool joins the registry one turn later; a broken one is left out and the agent told", async () => {
-  const { cwd, harness } = sandbox();
+  const { cwd } = sandbox();
+  const harness = join(sessionDir('h', 's'), 'layer');
   const shout = "export const description = 'Says it louder';\nexport const parameters = { type: 'object', properties: { text: { type: 'string' } } };\nexport const run = ({ text }, base) => text.toUpperCase() + ' from ' + base.name;";
   const { model, shown } = scripted(
     [
       ['write', { path: join(harness, 'tools/shout.ts'), content: shout }],
       ['write', { path: join(harness, 'tools/broken.ts'), content: 'export const description = ' }],
       ['write', { path: join(harness, 'tools/versions.ts'), content: shout }],
+      ['write', { path: join(harness, 'tools/probe.py'), content: 'print(1)' }],
     ],
     [['shout', { text: 'hi' }]],
   );
@@ -129,10 +148,11 @@ test("a harness's own tool joins the registry one turn later; a broken one is le
 
   const record = read(sessionDir('h', 's'));
   assert.ok(!names(shown[1]).includes('shout'), 'not yet in the turn that wrote it');
-  assert.deepEqual(names(shown[2]), ['read', 'write', 'edit', 'bash', 'versions', 'declare', 'assess', 'shout']);
+  assert.deepEqual(names(shown[2]), ['read', 'write', 'edit', 'bash', 'versions', 'shout']);
   assert.match(shown[2].tools.find((tool) => tool.function.name === 'versions').function.description, /Earlier versions/, 'versions stays the base\'s');
-  assert.match(said(shown[2]), /left out: tools\/broken\.ts/);
-  assert.match(said(shown[2]), /left out: tools\/versions\.ts: versions is the base's/);
+  assert.match(said(shown[2]), /left out: your layer's tools\/broken\.ts/);
+  assert.match(said(shown[2]), /left out: your layer's tools\/versions\.ts: versions is the base's/);
+  assert.match(said(shown[2]), /left out: your layer's tools\/probe\.py: only \.ts files are tools/);
   assert.equal(record[2].calls[0].result, 'HI from h');
 });
 
@@ -166,7 +186,7 @@ test('a turn cannot hurt the session: it works on copies, and a step that is not
 
   assert.ok(!said(shown[0]).includes('junk'));
   assert.match(said(shown[0]), /^go\n\[base\] Your turn threw.*no whole context/s);
-  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions', 'declare', 'assess']);
+  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions']);
 });
 
 test('a request the provider refuses goes to the plain turn, which builds it again from the originals', async () => {
@@ -372,33 +392,68 @@ test("the human's review: approved and rated, or rejected and reopened; analytic
   assert.match(analytics.report('h'), /T1: approved for \$0\.0040, rated 4 after 1 rejections/);
 });
 
-test('a change declares itself on its version, with its evidence; improvement assesses it later; analytics sets the tasks before and after against it', async () => {
+test('improvement takes up what a working session built, declaring it with its evidence, and assesses it later; analytics sets the tasks before and after against it', async () => {
   const { cwd, harness } = sandbox();
   const probe = "export const description = 'Checks the work';\nexport const parameters = { type: 'object', properties: {} };\nexport const run = () => 'ok';";
-  const declaration = { change: 'a probe tool', friction: 'checking by hand', expect: 'cheaper checks', scope: 'domain' };
+  const built = join(sessionDir('h', 'a'), 'layer', 'tools/probe.ts');
   say('a', 'work on T1');
-  await run({ harness: 'h', session: 'a', cwd, once: true, task: 'T1', model: scripted(
-    [['write', { path: join(harness, 'tools/probe.ts'), content: probe }]],
+  const work = scripted([['write', { path: built, content: probe }]], [['probe', {}]], [['declare', { change: 'x', friction: 'y', expect: 'z', scope: 'domain', evidence: ['a#0'] }]]);
+  await run({ harness: 'h', session: 'a', cwd, once: true, task: 'T1', model: work.model });
+  assert.match(read(sessionDir('h', 'a'))[3].calls[0].result, /^error: there is no tool named declare/, 'a working session does not declare');
+
+  const declaration = { change: 'a probe tool', friction: 'checking by hand', expect: 'cheaper checks', scope: 'domain' };
+  say('improve-1', 'take it up');
+  await run({ harness: 'h', session: 'improve-1', cwd, once: true, model: scripted(
+    [['bash', { command: `mkdir -p ${join(harness, 'tools')} && cp ${built} ${join(harness, 'tools/probe.ts')}` }]],
     [['declare', declaration]],
-    [['declare', { ...declaration, evidence: ['a#0', 'T1'] }]],
+    [['declare', { ...declaration, evidence: ['a#1', 'T1'] }]],
   ).model });
-  const record = read(sessionDir('h', 'a'));
+  const record = read(sessionDir('h', 'improve-1'));
   assert.match(record[2].calls[0].result, /^error: cite the records/);
   assert.match(record[3].calls[0].result, /^declared on version [0-9a-f]+$/);
   const version = record[3].calls[0].result.split(' ').at(-1);
+  assert.equal(readFileSync(join(harness, 'tools/probe.ts'), 'utf8'), probe, 'the harness itself has it now');
 
-  say('improve-1', 'judge it');
-  await run({ harness: 'h', session: 'improve-1', cwd, once: true, model: scripted([['assess', { version, verdict: 'kept', signals: 'checks got cheaper', evidence: ['T1'] }]]).model });
+  say('improve-2', 'judge it');
+  await run({ harness: 'h', session: 'improve-2', cwd, once: true, model: scripted([['assess', { version, verdict: 'kept', signals: 'checks got cheaper', evidence: ['T1'] }]]).model });
 
   const noted = versions.history(harness).find((v) => v.version === version);
-  assert.deepEqual([noted.declarations[0].change, noted.declarations[0].scope, noted.declarations[0].evidence, noted.declarations[0].by], ['a probe tool', 'domain', ['a#0', 'T1'], 'a#3']);
-  assert.deepEqual([noted.assessments[0].verdict, noted.assessments[0].by], ['kept', 'improve-1#1']);
+  assert.deepEqual([noted.declarations[0].change, noted.declarations[0].scope, noted.declarations[0].evidence, noted.declarations[0].by], ['a probe tool', 'domain', ['a#1', 'T1'], 'improve-1#3']);
+  assert.deepEqual([noted.assessments[0].verdict, noted.assessments[0].by], ['kept', 'improve-2#1']);
   const { tasks, platform } = analytics.attribute(analytics.sessions('h'));
-  assert.deepEqual(platform.sessions, ['improve-1'], 'improvement is the platform loop\'s cost, not a task\'s');
+  assert.deepEqual(platform.sessions, ['improve-1', 'improve-2'], 'improvement is the platform loop\'s cost, not a task\'s');
   const [change] = analytics.changes('h', tasks);
   assert.deepEqual([change.before.tasks, change.after.tasks], [1, 0]);
-  assert.deepEqual(analytics.undeclared('h'), [], 'the tool was saved by a turn and then declared on that version');
+  assert.deepEqual(analytics.undeclared('h'), []);
   assert.match(analytics.report('h'), /\(domain\) a probe tool — expects: cheaper checks\n {4}before: 1 tasks, 0 approved · after: 0 tasks, 0 approved · assessed kept: checks got cheaper/);
+});
+
+test('two sessions build their own version of a tool in their layers; analytics keeps them apart and groups them by path', async () => {
+  const { cwd } = sandbox();
+  const tool = (answer) => `export const description = 'Checks';\nexport const parameters = { type: 'object', properties: {} };\nexport const run = () => '${answer}';`;
+  for (const [session, answer] of [['a', 'all good'], ['b', 'mismatch in totals']]) {
+    say(session, 'work');
+    await run({ harness: 'h', session, cwd, once: true, model: scripted([['write', { path: join(sessionDir('h', session), 'layer', 'tools/check.ts'), content: tool(answer) }]], [['check', {}]], [['check', {}]]).model });
+  }
+  const loops = analytics.controlLoops(analytics.sessions('h'));
+  assert.deepEqual(loops.map((l) => [l.session, l.where, l.uses, l.problems]), [['a', 'layer', 2, 0], ['b', 'layer', 2, 2]], "each session's calls go to its own version");
+  const [check] = analytics.layers('h');
+  assert.deepEqual([check.path, check.built.map((b) => b.session)], ['tools/check.ts', ['a', 'b']]);
+  assert.match(analytics.report('h'), /tools\/check\.ts: a \(3 lines\), b \(3 lines\)/);
+  assert.match(improvement.brief('h'), /Take something up only where at least two sessions show it/);
+});
+
+test('with "layers": false, working sessions change the harness itself and declare it, as before', async () => {
+  const { cwd, harness } = sandbox();
+  harnessFile(harness, 'config.json', JSON.stringify({ layers: false }));
+  const { model, shown } = scripted([['write', { path: join(harness, 'notes.md'), content: 'learned' }]], 'ok');
+  say('s', 'go');
+  await run({ harness: 'h', session: 's', cwd, once: true, model });
+
+  assert.equal(readFileSync(join(harness, 'notes.md'), 'utf8'), 'learned');
+  assert.ok(!existsSync(join(sessionDir('h', 's'), 'layer')));
+  assert.deepEqual(names(shown[0]), ['read', 'write', 'edit', 'bash', 'versions', 'declare', 'assess']);
+  assert.match(shown[0].system, /You run inside a harness that is yours/);
 });
 
 test("skills load when a task needs them: the harness's own and those of folders it names, its own winning; analytics counts the loads", async () => {
@@ -428,7 +483,7 @@ test('a new session starts with what the harness remembers, and knows its own se
   await run({ harness: 'h', session: 's', cwd, once: true, model });
 
   assert.match(shown[0].system, /This is session s; its record, one entry per turn, is .+\/\.sessions\/s\/record\.jsonl\./);
-  assert.match(shown[0].system, /What you remember, from memory\/MEMORY\.md:\n\n- \[Refunds\]\(refunds\.md\) — refunds are negative lines$/);
+  assert.match(shown[0].system, /What the harness remembers, from memory\/MEMORY\.md:\n\n- \[Refunds\]\(refunds\.md\) — refunds are negative lines$/);
 });
 
 test('improvement: a session of its own from a brief the base writes, by hand or every so many approved tasks', async () => {
@@ -492,10 +547,11 @@ test('analytics counts what each task took, from the task a session was started 
 });
 
 test('the session survives an unreadable inbox file and a folder git cannot save', async () => {
-  const { cwd, harness } = sandbox();
-  versions.init(harness);
-  harnessFile(harness, 'notes.md', 'a change');
-  writeFileSync(join(harness, '.git', 'index.lock'), ''); // as if another session were saving at this moment
+  const { cwd } = sandbox();
+  const layer = join(sessionDir('h', 's'), 'layer');
+  versions.init(layer);
+  harnessFile(layer, 'notes.md', 'a change');
+  writeFileSync(join(layer, '.git', 'index.lock'), ''); // as if another process were saving at this moment
   mkdirSync(join(sessionDir('h', 's'), 'inbox'), { recursive: true });
   writeFileSync(join(sessionDir('h', 's'), 'inbox', '0-garbage.json'), '{ not json');
   const { model, shown } = scripted('still here');
@@ -503,7 +559,7 @@ test('the session survives an unreadable inbox file and a folder git cannot save
   await run({ harness: 'h', session: 's', cwd, once: true, model });
 
   const record = read(sessionDir('h', 's'));
-  assert.match(record[0].version, /^unsaved-/);
+  assert.match(record[0].layer, /^unsaved-/);
   assert.match(said(shown[0]), /could not be read and was dropped: 0-garbage\.json/);
   assert.match(said(shown[0]), /Saving a version of your folder failed/);
   assert.equal(record[0].response.content, 'still here');

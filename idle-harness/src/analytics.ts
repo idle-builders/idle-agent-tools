@@ -2,7 +2,7 @@
 // took to reach a solution the human approved and how they rated it; per control loop — a tool a session built for
 // itself — what each version cost and did. Until idle-tasks keeps approvals and ratings, the record's reviews are read.
 
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { harnessDir } from './home.ts';
 import { read } from './record.ts';
@@ -28,8 +28,12 @@ export type TaskTook = {
   attempts: number; submits: number; rejections: number; approved?: string; toApproval?: number; rating?: number; commits: string[]; first: string; last: string;
 };
 
-// One version of a tool a session wrote, with what it cost to write and what it did afterwards.
-export type LoopVersion = { tool: string; session: string; buildCost: number; lines: number; uses: number; answerChars: number; problems: number; usedIn: string[]; tasks: string[] };
+// One version of a tool a session wrote, in its own layer or in the harness itself, with what it cost to write and
+// what it did afterwards.
+export type LoopVersion = { tool: string; session: string; where: 'layer' | 'harness'; buildCost: number; lines: number; uses: number; answerChars: number; problems: number; usedIn: string[]; tasks: string[] };
+
+// A tool file in a harness folder, or in a session's layer over it.
+const TOOL = /(?:^|\/)harness\/[\w-]+\/(?:\.sessions\/([\w-]+)\/layer\/)?tools\/([\w-]+)\.ts/;
 
 const BARE_NAMES = new Set(BARE.map((tool) => tool.spec.function.name));
 
@@ -116,7 +120,7 @@ export function attribute(all: Session[]): { tasks: TaskTook[]; unattributed: { 
 }
 
 // Every version of every tool the sessions wrote: a session that writes tools/<name>.ts makes a version of it, and the
-// calls to that tool until the next version count for it.
+// calls to that tool until the next version count for it. A session's calls go to its own layer's version first.
 export function controlLoops(all: Session[]): LoopVersion[] {
   const { tasks } = attribute(all);
   const taskOf = (session: string) => tasks.filter((t) => t.sessions.includes(session)).map((t) => t.task);
@@ -128,18 +132,20 @@ export function controlLoops(all: Session[]): LoopVersion[] {
         if (call.block !== 'tool') continue;
         const name = String(call.call?.function?.name ?? '');
         const args = String(call.call?.function?.arguments ?? '');
-        const path = args.match(/tools\/([\w-]+)\.ts/)?.[1];
+        const found = args.match(TOOL);
+        const path = found?.[2];
         if ((name === 'write' || name === 'edit') && path) {
-          let version = latest.get(path);
+          const key = found![1] ? `${found![1]}:${path}` : path;
+          let version = latest.get(key);
           if (!version || version.session !== session.id) {
-            version = { tool: path, session: session.id, buildCost: 0, lines: 0, uses: 0, answerChars: 0, problems: 0, usedIn: [], tasks: [] };
+            version = { tool: path, session: session.id, where: found![1] ? 'layer' : 'harness', buildCost: 0, lines: 0, uses: 0, answerChars: 0, problems: 0, usedIn: [], tasks: [] };
             versions.push(version);
-            latest.set(path, version);
+            latest.set(key, version);
           }
           version.buildCost += entry.cost ?? 0;
           if (name === 'write') try { version.lines = String(JSON.parse(args).content ?? '').split('\n').length; } catch { /* not JSON */ }
         }
-        const version = name && !BARE_NAMES.has(name) ? latest.get(name) : undefined;
+        const version = name && !BARE_NAMES.has(name) ? latest.get(`${session.id}:${name}`) ?? latest.get(name) : undefined;
         if (!version) continue;
         version.uses++;
         version.answerChars += String(call.result ?? '').length;
@@ -167,6 +173,22 @@ export function skillUses(all: Session[]): { skill: string; loads: number; sessi
     }
   }
   return [...uses].map(([skill, use]) => ({ skill, loads: use.loads, sessions: use.sessions.size })).sort((a, b) => b.loads - a.loads);
+}
+
+// What each working session's layer holds now, by path: the same path in several layers is the same kind of thing
+// built again, which improvement compares.
+export function layers(harness: string): { path: string; built: { session: string; lines: number; file: string }[] }[] {
+  const byPath = new Map<string, { session: string; lines: number; file: string }[]>();
+  const folder = join(harnessDir(harness), '.sessions');
+  for (const session of existsSync(folder) ? readdirSync(folder).filter((id) => !improving(id)).sort() : []) {
+    const layer = join(folder, session, 'layer');
+    if (!existsSync(layer)) continue;
+    for (const path of readdirSync(layer, { recursive: true }).map(String).filter((p) => !p.startsWith('.git') && statSync(join(layer, p)).isFile()).sort()) {
+      const file = join(layer, path);
+      (byPath.get(path) ?? byPath.set(path, []).get(path)!).push({ session, lines: readFileSync(file, 'utf8').split('\n').length, file });
+    }
+  }
+  return [...byPath].map(([path, built]) => ({ path, built })).sort((a, b) => b.built.length - a.built.length || a.path.localeCompare(b.path));
 }
 
 // Per version of the harness: how many turns ran on it and what they cost.
@@ -206,8 +228,9 @@ export function report(harness: string, json = false): string {
   const versions = byVersion(all);
   const declared = changes(harness, tasks);
   const skills = skillUses(all);
+  const built = layers(harness);
   const loose = undeclared(harness);
-  if (json) return JSON.stringify({ harness, tasks, unattributed, platform, loops, skills, versions, changes: declared, undeclared: loose }, null, 2);
+  if (json) return JSON.stringify({ harness, tasks, unattributed, platform, loops, layers: built, skills, versions, changes: declared, undeclared: loose }, null, 2);
   const money = (n: number) => `$${n.toFixed(4)}`;
   const share = (part: number, whole: number) => (whole ? `${Math.round((100 * part) / whole)}%` : '-');
   const sided = (side: Side) => `${side.tasks} tasks, ${side.approved} approved${side.toApproval === null ? '' : ` for ${money(side.toApproval)} each`}${side.rating === null ? '' : `, rated ${side.rating.toFixed(1)}`}`;
@@ -219,7 +242,10 @@ export function report(harness: string, json = false): string {
     `  unattributed: ${money(unattributed.cost)}, ${unattributed.turns} turns in ${unattributed.sessions.length} sessions`,
     '',
     'Control loops — every version of a tool a session built',
-    ...(loops.length ? loops.map((l) => `  ${l.tool} from ${l.session}: ${l.lines || '?'} lines, ${money(l.buildCost)} to build, used ${l.uses}×${l.uses ? ` (answers ${Math.round(l.answerChars / l.uses)} characters, ${l.problems} reporting a problem)` : ''}${l.tasks.length ? `, for ${l.tasks.join(', ')}` : ''}`) : ['  none']),
+    ...(loops.length ? loops.map((l) => `  ${l.tool} from ${l.session}${l.where === 'layer' ? "'s layer" : ', in the harness'}: ${l.lines || '?'} lines, ${money(l.buildCost)} to build, used ${l.uses}×${l.uses ? ` (answers ${Math.round(l.answerChars / l.uses)} characters, ${l.problems} reporting a problem)` : ''}${l.tasks.length ? `, for ${l.tasks.join(', ')}` : ''}`) : ['  none']),
+    '',
+    "Layers — what working sessions built for themselves, by path; the same path in several layers is the same kind of thing built again",
+    ...(built.length ? built.map((b) => `  ${b.path}: ${b.built.map((x) => `${x.session} (${x.lines} lines)`).join(', ')}`) : ['  none']),
     '',
     `Skills — loaded how often, of ${all.length - platform.sessions.length} working sessions`,
     ...(skills.length ? skills.map((k) => `  ${k.skill}: ${k.loads} loads in ${k.sessions} sessions`) : ['  none']),

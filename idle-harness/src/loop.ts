@@ -2,6 +2,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { compact, LIMIT, measure, size, spill } from './compact.ts';
 import type { Compaction, Options as Compacting, Where } from './compact.ts';
 import * as harness from './harness.ts';
@@ -42,10 +43,10 @@ type Compactor = (context: Context, options: Compacting, trigger: Where['trigger
 
 // The building blocks for one turn. Every call is written down, so a turn can later be replayed from its record.
 // `ran` is shared with the plain turn that takes over from a broken one, so no tool call runs twice.
-function blocks(o: Options, n: number, cwd: string, version: string, tools: Tool[], ran: Map<string, string>, calls: any[], compactor: Compactor): Blocks {
+function blocks(o: Options, n: number, cwd: string, folder: string, version: string, tools: Tool[], ran: Map<string, string>, calls: any[], compactor: Compactor): Blocks {
   const base: Blocks = {
     name: o.harness,
-    harness: harnessDir(o.harness),
+    harness: folder,
     version,
     cwd,
     session: o.session,
@@ -102,7 +103,11 @@ async function loop(o: Options, record: string) {
   let last = earlier.at(-1);
   const cwd: string = last?.cwd ?? o.cwd;
   const task: string | undefined = o.task ?? last?.task;
-  let context: Context = last?.context ?? fresh(dir, cwd, o.session, `${record}/record.jsonl`, harness.memory(dir));
+  // A working session keeps its changes in a layer of its own; improvement changes the harness itself.
+  const layer = harness.layered(dir) && !improving(o.session) ? join(record, 'layer') : undefined;
+  if (layer) versions.init(layer);
+  const folder = layer ?? dir;
+  let context: Context = last?.context ?? fresh({ folder, shared: layer && dir, cwd, session: o.session, record: `${record}/record.jsonl`, memory: harness.memory(dir, ...(layer ? [layer] : [])) });
   let response: Message | null = last?.response ?? null;
   const told = new Set<string>(); // the agent hears of each problem once per version, not at every turn
   // What the provider last read, so the size of the next request is counted rather than guessed.
@@ -111,7 +116,8 @@ async function loop(o: Options, record: string) {
   const compactions = earlier.flatMap((e) => (e.calls ?? []).filter((c: any) => c?.block === 'compact').map((c: any) => ({ n: e.n, by: c.by, reclaimed: c.before - c.after })));
   let guarded = false;
 
-  for (let n = (last?.n ?? -1) + 1; ; n++) {
+  const first = (last?.n ?? -1) + 1;
+  for (let n = first; ; n++) {
     // With no answer to hand to the turn, there is nothing to do until something arrives.
     const { items, done } = await take(record, !response && !o.once);
     if (!response && !items.length) return last; // idle, and asked to run only until then
@@ -122,15 +128,29 @@ async function loop(o: Options, record: string) {
       told.add(key);
       arrived.push({ from: 'base', at: now(), text });
     };
-    let version: string;
-    try {
-      version = versions.save(dir, `${o.session} turn ${n}`);
-    } catch (error: any) {
-      version = `unsaved-${Date.now()}`; // still a new name, so changed files load again
-      tell(`save ${error.message}`, `Saving a version of your folder failed, so this turn runs it unsaved: ${error.message}`);
+    // A working session saves the harness as it found it, then takes what it changes there itself into its layer.
+    // Neither happens while an improvement session, whose changes these may be, is at work.
+    if (layer && !improvement.running(o.harness)) {
+      try {
+        if (n === first) versions.save(dir, `as ${o.session} found it`);
+        const moved = n === first ? [] : versions.move(dir, layer);
+        if (moved.length) tell(`moved ${moved.join(' ')}`, `You changed the harness ${dir}, which only improvement sessions change, so your changes were moved to your layer ${layer}: ${moved.join(', ')}.`);
+      } catch (error: any) {
+        tell(`shared ${error.message}`, `The harness ${dir} could not be saved or put back: ${error.message}`);
+      }
     }
-    const own = await harness.tools(dir, version);
-    for (const problem of own.problems) tell(`${version} ${problem}`, `A tool of yours was left out: ${problem}`);
+    const unsaved = (error: any) => {
+      tell(`save ${error.message}`, `Saving a version of your folder failed, so this turn runs it unsaved: ${error.message}`);
+      return `unsaved-${Date.now()}`; // still a new name, so changed files load again
+    };
+    let version: string;
+    let layered: string | undefined;
+    try { version = layer ? versions.head(dir) : versions.save(dir, `${o.session} turn ${n}`); } catch (error) { version = unsaved(error); }
+    if (layer) try { layered = versions.save(layer, `${o.session} turn ${n}`); } catch (error) { layered = unsaved(error); }
+    const folders = [...(layer ? [{ dir: layer, version: layered! }] : []), { dir, version }];
+    const loaded = layered ? `${version}+${layered}` : version; // what this turn runs: the harness, and the layer over it
+    const own = await harness.tools(folders);
+    for (const problem of own.problems) tell(`${loaded} ${problem}`, `A tool of yours was left out: ${problem}`);
 
     const snapshot = work(cwd);
     const ran = new Map<string, string>();
@@ -142,22 +162,22 @@ async function loop(o: Options, record: string) {
       compactions.push({ n, by, reclaimed: done.entry.before - done.entry.after });
       return { context: { ...done.context, model: c.model }, entry: done.entry };
     };
-    const base = blocks(o, n, cwd, version, registry(own.tools, harness.skills(dir)), ran, calls, compactor);
+    const base = blocks(o, n, cwd, folder, loaded, registry(own.tools, harness.skills(dir, layer), !layer), ran, calls, compactor);
     // The plain turn that takes over uses only the base's own tools, so a broken tool cannot block it.
-    const takeOver = () => plain(context, response, arrived, blocks(o, n, cwd, version, BARE, ran, calls, compactor));
+    const takeOver = () => plain(context, response, arrived, blocks(o, n, cwd, folder, loaded, BARE.filter((t) => !layer || !['declare', 'assess'].includes(t.spec.function.name)), ran, calls, compactor));
     let phase: 'turn' | 'model' = 'turn';
     let sent: Context | undefined;
     stopping = (why) => {
       // Stopped while its tools ran: the calls that did not finish are answered as stopped.
       const results: Message[] = (response?.tool_calls ?? []).map((call) => ({ role: 'tool', tool_call_id: call.id, content: ran.get(call.id) ?? `stopped (${why}) before it finished` }));
       const at = phase === 'model' ? sent! : { ...context, messages: [...context.messages, ...(response ? [response] : []), ...results] };
-      append(record, { n, at: now(), harness: o.harness, session: o.session, ...(task ? { task } : {}), agent: 'main', cwd, ...(snapshot ? { work: snapshot } : {}), version, arrived: phase === 'model' ? arrived : [], calls, stopped: why, context: at, response: null }, context);
+      append(record, { n, at: now(), harness: o.harness, session: o.session, ...(task ? { task } : {}), agent: 'main', cwd, ...(snapshot ? { work: snapshot } : {}), version, ...(layered ? { layer: layered } : {}), arrived: phase === 'model' ? arrived : [], calls, stopped: why, context: at, response: null }, context);
       if (phase === 'model') done(); // what arrived is in the context; otherwise it comes again next time
     };
 
     let step: Step;
     let threw: string | undefined;
-    const mine = await harness.turn(dir, version).catch((error) => { threw = String(error?.stack ?? error); return null; });
+    const mine = await harness.turn(folders).catch((error) => { threw = String(error?.stack ?? error); return null; });
     try {
       if (threw) throw new Error(threw);
       // The turn gets copies: whatever it does to them, the plain turn that may take over starts from the originals.
@@ -165,7 +185,7 @@ async function loop(o: Options, record: string) {
       step = mine ? check(await mine(copy.context, copy.response, copy.arrived, base)) : await plain(context, response, arrived, base);
     } catch (error: any) {
       threw ??= String(error?.stack ?? error);
-      tell(`${version} turn`, `Your turn threw, so the plain turn ran instead:\n${threw}`);
+      tell(`${loaded} turn`, `Your turn threw, so the plain turn ran instead:\n${threw}`);
       step = await takeOver();
     }
 
@@ -211,7 +231,7 @@ async function loop(o: Options, record: string) {
       } catch (error: any) {
         if (mine && !threw && refused(error)) {
           // The provider turned down what the harness's turn built. The plain turn builds it again from the originals.
-          tell(`${version} refused`, `The model provider refused the request your turn built, so the plain turn ran instead: ${error.message}`);
+          tell(`${loaded} refused`, `The model provider refused the request your turn built, so the plain turn ran instead: ${error.message}`);
           step = await takeOver();
           try { await ask(step); } catch (again: any) { failed = String(again?.message ?? again); }
         } else {
@@ -222,7 +242,7 @@ async function loop(o: Options, record: string) {
 
     const costs = [reply?.cost, ...calls.map((call) => call.cost)].filter((cost): cost is number => typeof cost === 'number');
     last = {
-      n, at: now(), harness: o.harness, session: o.session, ...(task ? { task } : {}), agent: 'main', cwd, ...(snapshot ? { work: snapshot } : {}), version, model, arrived, calls, threw,
+      n, at: now(), harness: o.harness, session: o.session, ...(task ? { task } : {}), agent: 'main', cwd, ...(snapshot ? { work: snapshot } : {}), version, ...(layered ? { layer: layered } : {}), model, arrived, calls, threw,
       context: sent, response: reply?.message ?? null, usage: reply?.usage, cost: costs.length ? costs.reduce((sum, cost) => sum + cost, 0) : null, failed,
     };
     append(record, last, context);

@@ -49,6 +49,8 @@ export async function turn(context, response, arrived, base) {
 ~/.idle/harness/<harness>/              the harness: config.json, turn.ts, tools/, skills/, memory/, whatever it needs — a git
                                         repository the base drives, its changes' declarations kept as git notes
 ~/.idle/harness/<harness>/.sessions/<session>/
+    layer/                              what a working session built for itself, laid over the harness for it alone: tools/,
+                                        turn.ts, skills/, memory/ — with its own versions; improvement takes up the best
     record.jsonl                        one entry per turn: what arrived, every call and its result, what the model saw (only the
                                         messages after the shared start), its answer, the turn's cost, the commit the work was at
     spill/                              tool answers too long for the context, whole

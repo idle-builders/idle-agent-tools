@@ -136,10 +136,14 @@ export function skill(skills: Skill[]): Tool {
   });
 }
 
+// Only what changes the shared harness declares itself: an improvement session, or any session of a harness without
+// layers. A working session's layer is evidence for improvement, not a change.
+const DECLARING = new Set(['declare', 'assess']);
+
 // The tools a turn can call: the bare ones, the skill loader when there are skills, and the harness's own, which
 // replace those of the same name.
-export function registry(own: Tool[], skills: Skill[] = []): Tool[] {
+export function registry(own: Tool[], skills: Skill[] = [], declaring = true): Tool[] {
   const mine = own.filter((t) => !KEPT.has(t.spec.function.name));
   const names = new Set(mine.map((t) => t.spec.function.name));
-  return [...BARE, ...(skills.length ? [skill(skills)] : [])].filter((t) => !names.has(t.spec.function.name)).concat(mine);
+  return [...BARE.filter((t) => declaring || !DECLARING.has(t.spec.function.name)), ...(skills.length ? [skill(skills)] : [])].filter((t) => !names.has(t.spec.function.name)).concat(mine);
 }
