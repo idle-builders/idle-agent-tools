@@ -126,3 +126,24 @@ The first E18 batch, run on 19 October without a sandbox, could not be used. All
 - **What follows for the evals.** Wherever the truth can be recovered inside one session by probing, the model closes that loop itself. The platform loop can only matter for loops whose feedback spans sessions: a verdict that comes after the session has ended, a signal that only shows across many tasks, a requester's taste that no single task reveals.
 - **A base bug.** A harness tool that left a server open kept its session process alive after its last turn, so the front end waited until the eval's 30-minute limit. That is why so many E19 sessions timed out. A session run with `--once` now ends when its work is done, with a test.
 
+
+## What E16 showed under session layers
+
+*25–26 October 2026, model `xiaomi/mimo-v2.6-pro`, sandboxed, the base with session layers and its own improvement brief. Nine runs, two of them lost to a runner bug (two runs started in the same millisecond shared a harness; names now carry a random suffix). Every valid run had every answer right in the end.*
+
+| Structure | Runs | Questions | Improvement | Whole stream | Cost per question in the last block |
+|---|---|---|---|---|---|
+| frozen, the floor | 1 | $0.367 | — | $0.367 | $0.023 |
+| frozen and seeded, the ceiling | 1 | $0.194 | — | $0.194 | $0.015 |
+| open | 2 | $0.246, $0.254 | $0.114, $0.260 | $0.361, $0.515 | $0.019, $0.017 |
+| layered | 4 | $0.346, $0.294, $0.247, $0.347 | $0.233, $0.137, $0.157, $0.185 | $0.579, $0.430, $0.404, $0.532 | $0.015, $0.023, $0.014, $0.020 |
+
+Earlier batches put frozen at $0.39 and $0.41 and seeded at $0.13 and $0.21.
+
+- **Layers work as built, and the platform loop can do what it is for.** In the clearest run, the second working session built an `orders` tool in its layer; the first improvement session compared it with the other layers and took it up; the sessions after it called it 45 times, and the last block cost $0.007 to $0.013 a question, the seeded ceiling's level. In three of the four layered runs, later sessions used what improvement promoted.
+- **Improvement must promote something the base loads.** In one run it promoted a Python module into `tools/`, which no session was offered, and the sessions went on writing a probe script per question. The base now says that a file in `tools/` that is not `.ts` is not a tool, and the brief says what is taken up as a tool must be `tools/<name>.ts`.
+- **Learning lowered what the questions cost, and improvement cost more than that saved.** Questions cost $0.25 to $0.35 under open and layered, against $0.37 to $0.41 frozen. Two improvement sessions cost $0.11 to $0.26 per run, so no learning run was cheaper than frozen over fifteen questions. An improvement session spends most of it on reasoning (24K to 52K output tokens) and on reading raw records with 20 to 40 shell calls, its context growing to 80K tokens. It would have to save that over many more tasks than fifteen.
+- **Layered harnesses stay smaller.** They ended with one tool and four or five memory files; the open one with two tools, a skill and seven memory files. One improvement session wrote verified answers to earlier questions into memory: memorising, harmless only because no question repeats.
+- **Layered and open did not differ beyond the noise** in question cost or quality with two to four runs each.
+
+What follows: the next lever is what improvement costs, not who changes the harness. Its brief should hand it the evidence already digested — per session, the task, its cost, what its layer added and what it said at the end — so that it reads less, and it should run less often, at an interval that lets what it promotes pay off. An eval with a longer stream is needed to see whether it does.

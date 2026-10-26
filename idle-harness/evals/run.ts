@@ -85,7 +85,8 @@ function open(dir: string) {
 const sum = (entries: any[]) => +entries.reduce((total, entry) => total + (entry.cost ?? 0), 0).toFixed(4);
 
 async function once(scenario: Scenario, attempt: number, keep: boolean, structure: Structure, seeded: boolean) {
-  const run = new Run(`eval-${scenario.id.toLowerCase()}-${Date.now().toString(36)}-${attempt}`, '');
+  // Unique even for runs started in the same millisecond.
+  const run = new Run(`eval-${scenario.id.toLowerCase()}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}-${attempt}`, '');
   run.cwd = mkdtempSync(join(tmpdir(), `${run.name}-`));
   run.structure = structure;
   const started = Date.now();
