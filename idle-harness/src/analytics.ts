@@ -191,6 +191,33 @@ export function layers(harness: string): { path: string; built: { session: strin
   return [...byPath].map(([path, built]) => ({ path, built })).sort((a, b) => b.built.length - a.built.length || a.path.localeCompare(b.path));
 }
 
+// Each working session since the last improvement, digested, so improvement reads records only to check something:
+// what it was asked, what it cost, which of its own tools it called, what its layer holds, the follow-ups it got and
+// what it said at the end, which is where a retrospective is.
+export function digest(harness: string): string[] {
+  const all = sessions(harness);
+  const since = all.filter((s) => improving(s.id)).at(-1)?.entries[0]?.at ?? '';
+  const held = new Map<string, string[]>();
+  for (const { path, built } of layers(harness)) for (const { session } of built) held.set(session, [...(held.get(session) ?? []), path]);
+  const cut = (text: unknown, most: number) => { const t = String(text ?? '').replace(/\s+/g, ' ').trim(); return t.length > most ? `${t.slice(0, most)}…` : t; };
+  return all.filter((s) => !improving(s.id) && String(s.entries[0].at) >= since).map((s) => {
+    const own = new Map<string, number>();
+    for (const call of s.entries.flatMap((e) => e.calls ?? [])) {
+      const name = call?.block === 'tool' ? String(call.call?.function?.name ?? '') : '';
+      if (name && !BARE_NAMES.has(name)) own.set(name, (own.get(name) ?? 0) + 1);
+    }
+    const said = s.entries.flatMap((e) => e.arrived ?? []).filter((item: any) => item.from !== 'base');
+    const cost = s.entries.reduce((sum, e) => sum + (e.cost ?? 0), 0);
+    return [
+      `${s.id}: ${s.entries.filter((e) => e.usage).length} model calls, $${cost.toFixed(4)}${s.entries[0].task ? `, task ${s.entries[0].task}` : ''}`,
+      `  asked: ${cut(said[0]?.text, 200)}`,
+      ...(said.length > 1 ? [`  then: ${said.slice(1).map((item: any) => cut(`${item.from === 'user' ? '' : `${item.from}: `}${item.text}`, 120)).join(' | ')}`] : []),
+      `  its own tools: ${own.size ? [...own].map(([name, n]) => `${name} ×${n}`).join(', ') : 'none'} · its layer: ${held.get(s.id)?.join(', ') || 'empty'}`,
+      `  said at the end: ${cut(s.entries.map((e) => e.response?.content).filter(Boolean).at(-1), 600)}`,
+    ].join('\n');
+  });
+}
+
 // Per version of the harness: how many turns ran on it and what they cost.
 export function byVersion(all: Session[]): { version: string; turns: number; cost: number; first: string }[] {
   const out = new Map<string, { version: string; turns: number; cost: number; first: string }>();

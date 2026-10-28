@@ -106,6 +106,38 @@ export const QUESTIONS: Question[] = [
   { id: 'q15', kind: 'name', text: 'On which day of the week was the most revenue made? Answer with the English name of the day.', answer: (ls) => top(tally(ls.filter((l) => l.status === 'fulfilled'), (l) => WEEKDAYS[new Date(`${l.date}T00:00:00Z`).getUTCDay()], (l) => l.quantity * l.price)) },
 ];
 
+// Twenty-five more of the same kinds, for a longer stream.
+const order = (ls: Line[]) => [...new Map(ls.map((l) => [l.order, l])).values()];
+const weekday = (l: Line) => WEEKDAYS[new Date(`${l.date}T00:00:00Z`).getUTCDay()];
+const byOrder = (ls: Line[]) => [...tally(ls, (l) => String(l.order), () => 1)];
+export const MORE: Question[] = [
+  { id: 'q16', kind: 'money', text: 'What was the revenue from customers in France in May 2026, in euros?', answer: (ls) => revenue(ls.filter((l) => l.country === 'FR' && month(l) === '2026-05')) },
+  { id: 'q17', kind: 'count', text: 'How many fulfilled orders were placed in June 2026?', answer: (ls) => orders(ls.filter((l) => l.status === 'fulfilled' && month(l) === '2026-06')).size },
+  { id: 'q18', kind: 'name', text: 'Which product category brought the most revenue in the first quarter of 2026?', answer: (ls) => top(tally(ls.filter((l) => l.status === 'fulfilled' && l.date < '2026-04-01'), (l) => l.category, (l) => l.quantity * l.price)) },
+  { id: 'q19', kind: 'percent', text: 'What share of all orders were refunded, in percent?', answer: (ls) => percent(orders(ls.filter((l) => l.status === 'refunded')).size / orders(ls).size) },
+  { id: 'q20', kind: 'list', text: 'Rank the product categories by units sold in March 2026 (fulfilled orders only), most first. Answer with a list of category names.', answer: (ls) => [...tally(ls.filter((l) => l.status === 'fulfilled' && month(l) === '2026-03'), (l) => l.category, (l) => l.quantity)].sort((a, b) => b[1] - a[1]).map(([c]) => c) },
+  { id: 'q21', kind: 'money', text: 'What was the average value of a fulfilled order from a wholesale customer, in euros? An order\'s value is the sum of its lines.', answer: (ls) => { const w = ls.filter((l) => l.status === 'fulfilled' && l.segment === 'wholesale'); return money(revenue(w) / orders(w).size); } },
+  { id: 'q22', kind: 'amounts', text: 'What was the revenue from each country in June 2026? Answer with an object from two-letter ISO code to euros.', answer: (ls) => Object.fromEntries([...tally(ls.filter((l) => l.status === 'fulfilled' && month(l) === '2026-06'), (l) => l.country, (l) => l.quantity * l.price)].map(([c, v]) => [c, money(v)])) },
+  { id: 'q23', kind: 'count', text: 'How many customers who signed up in 2025 placed at least one order (any status)?', answer: (ls) => new Set(ls.filter((l) => l.signedUp.startsWith('2025')).map((l) => l.customer)).size },
+  { id: 'q24', kind: 'name', text: 'Which SKU brought the most revenue in the whole export?', answer: (ls) => top(tally(ls.filter((l) => l.status === 'fulfilled'), (l) => l.sku, (l) => l.quantity * l.price)) },
+  { id: 'q25', kind: 'number', text: 'What is the median number of lines in an order (any status)?', answer: (ls) => { const n = byOrder(ls).map(([, c]) => c).sort((a, b) => a - b); return n.length % 2 ? n[(n.length - 1) / 2] : (n[n.length / 2 - 1] + n[n.length / 2]) / 2; } },
+  { id: 'q26', kind: 'percent', text: 'What share of the revenue in the first quarter of 2026 came from Italy, in percent?', answer: (ls) => { const q1 = ls.filter((l) => l.date < '2026-04-01'); return percent(revenue(q1.filter((l) => l.country === 'IT')) / revenue(q1)); } },
+  { id: 'q27', kind: 'money', text: 'How much revenue did the category garden bring in the first half of 2026, in euros?', answer: (ls) => revenue(ls.filter((l) => l.category === 'garden')) },
+  { id: 'q28', kind: 'count', text: 'How many orders placed in April 2026 were cancelled?', answer: (ls) => orders(ls.filter((l) => l.status === 'cancelled' && month(l) === '2026-04')).size },
+  { id: 'q29', kind: 'name', text: 'In which month was the revenue highest? Answer as YYYY-MM.', answer: (ls) => top(tally(ls.filter((l) => l.status === 'fulfilled'), month, (l) => l.quantity * l.price)) },
+  { id: 'q30', kind: 'amounts', text: 'How many units of each product category were sold in May 2026 (fulfilled orders only)? Answer with an object from category to units.', answer: (ls) => Object.fromEntries(tally(ls.filter((l) => l.status === 'fulfilled' && month(l) === '2026-05'), (l) => l.category, (l) => l.quantity)) },
+  { id: 'q31', kind: 'money', text: 'How much revenue came from retail customers in Spain, in euros?', answer: (ls) => revenue(ls.filter((l) => l.segment === 'retail' && l.country === 'ES')) },
+  { id: 'q32', kind: 'count', text: 'How many different SKUs were sold in fulfilled orders in January 2026?', answer: (ls) => new Set(ls.filter((l) => l.status === 'fulfilled' && month(l) === '2026-01').map((l) => l.sku)).size },
+  { id: 'q33', kind: 'percent', text: 'Of the orders placed in June 2026, what share is still pending, in percent?', answer: (ls) => { const june = ls.filter((l) => month(l) === '2026-06'); return percent(orders(june.filter((l) => l.status === 'pending')).size / orders(june).size); } },
+  { id: 'q34', kind: 'name', text: 'Which country had the most cancelled orders? Answer with its two-letter ISO code.', answer: (ls) => top(tally(order(ls.filter((l) => l.status === 'cancelled')), (l) => l.country, () => 1)) },
+  { id: 'q35', kind: 'money', text: 'What was the value of the largest single fulfilled order, in euros?', answer: (ls) => money(Math.max(...tally(ls.filter((l) => l.status === 'fulfilled'), (l) => String(l.order), (l) => l.quantity * l.price).values())) },
+  { id: 'q36', kind: 'count', text: 'How many customers placed orders both in January 2026 and in June 2026 (any status)?', answer: (ls) => { const jan = new Set(ls.filter((l) => month(l) === '2026-01').map((l) => l.customer)); return new Set(ls.filter((l) => month(l) === '2026-06' && jan.has(l.customer)).map((l) => l.customer)).size; } },
+  { id: 'q37', kind: 'number', text: 'How many units of the category office were sold in the second quarter of 2026 (fulfilled orders only)?', answer: (ls) => ls.filter((l) => l.status === 'fulfilled' && l.category === 'office' && l.date >= '2026-04-01').reduce((t, l) => t + l.quantity, 0) },
+  { id: 'q38', kind: 'list', text: 'On which two days of the week were the fewest orders placed (any status)? Answer with a list of English day names, fewest first.', answer: (ls) => [...tally(order(ls), weekday, () => 1)].sort((a, b) => a[1] - b[1]).slice(0, 2).map(([d]) => d) },
+  { id: 'q39', kind: 'money', text: 'What was the revenue in the week from Monday 2 March to Sunday 8 March 2026, in euros?', answer: (ls) => revenue(ls.filter((l) => l.date >= '2026-03-02' && l.date <= '2026-03-08')) },
+  { id: 'q40', kind: 'percent', text: 'What share of the revenue came from orders with three or more lines, in percent?', answer: (ls) => { const big = new Set(byOrder(ls).filter(([, c]) => c >= 3).map(([o]) => Number(o))); return percent(revenue(ls.filter((l) => big.has(l.order))) / revenue(ls)); } },
+];
+
 // Whether a given answer is the right one, within a cent for money and a tenth for percentages.
 export function right(question: Question, given: unknown, truth: unknown): boolean {
   const num = (v: unknown) => (typeof v === 'number' ? v : typeof v === 'string' ? Number(v.replace(/[€%\s,]/g, '')) : NaN);

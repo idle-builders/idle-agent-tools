@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { attribute, improving, report, sessions } from './analytics.ts';
+import { attribute, digest, improving, report, sessions } from './analytics.ts';
 import * as harness from './harness.ts';
 import { harnessDir, sessionDir } from './home.ts';
 import { holder, pending, send } from './record.ts';
@@ -23,7 +23,11 @@ What counts is the cost to reach a solution the human approved, and the human's 
 
 ${report(name)}
 
-The evidence: every session's record is ${join(dir, '.sessions')}/<session>/record.jsonl, one JSON entry per turn with what arrived, every call and its result, what the model saw, its answer and cost; long tool answers are in spill/. Retrospectives and outcomes are in idle-tasks: idle list --memories --kind retro --all, and idle show --id <task>.
+What each working session ${last ? 'since then' : 'so far'} did:
+
+${digest(name).join('\n\n') || 'none'}
+
+That should answer most questions. To check something specific, the evidence is in ${join(dir, '.sessions')}/<session>/: record.jsonl, one JSON entry per turn with what arrived, every call and its result, what the model saw, its answer and cost; spill/ for long tool answers; layer/ for what it built. Retrospectives and outcomes are in idle-tasks: idle list --memories --kind retro --all, and idle show --id <task>.
 
 How to change it:
 - Working sessions build what they need in layers of their own, in ${join(dir, '.sessions')}/<session>/layer/: tools, a turn, skills, memory. Nothing of theirs is in the harness until you take it up. The layers above list what each built, by path, and the control loops what each tool cost and did.

@@ -440,7 +440,9 @@ test('two sessions build their own version of a tool in their layers; analytics 
   const [check] = analytics.layers('h');
   assert.deepEqual([check.path, check.built.map((b) => b.session)], ['tools/check.ts', ['a', 'b']]);
   assert.match(analytics.report('h'), /tools\/check\.ts: a \(3 lines\), b \(3 lines\)/);
-  assert.match(improvement.brief('h'), /Take something up only where at least two sessions show it/);
+  const brief = improvement.brief('h');
+  assert.match(brief, /Take something up only where at least two sessions show it/);
+  assert.match(brief, /b: 4 model calls, \$0\.0400\n {2}asked: work\n {2}its own tools: check ×2 · its layer: tools\/check\.ts\n {2}said at the end: done/, 'each working session, digested');
 });
 
 test('with "layers": false, working sessions change the harness itself and declare it, as before', async () => {
