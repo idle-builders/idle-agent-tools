@@ -131,9 +131,9 @@ test('check results are cached, and slow checks fall back to the stale cache', (
 
 test('opencode format prints plain text', () => {
   const { root } = fixture();
-  const result = run(root, 'opencode', 'ship');
+  const result = run(root, 'opencode', 'create-pr');
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /skill: ship, task: T-/);
+  assert.match(result.stdout, /skill: create-pr, task: T-/);
   assert.match(result.stdout, /Demo fix/);
   assert.doesNotMatch(result.stdout, /hookSpecificOutput/);
 });

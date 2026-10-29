@@ -7,7 +7,7 @@ Freeform "vibe coding" with an agent fails at scale: no separation between decid
 idle-skills is a workflow over [idle-tasks](../idle-tasks/), the record of work. A dropped task starts with an interview: the planner asks, you decide, and the answers become a goal and a plan of 50–100 lines in your own words. The planner breaks the work into more detailed goals; builders work them; the system runs your project's checks; fresh reviewers judge whether each *goal* is reached, not whether a list was ticked.
 
 ```
-drop a task ──▶ interview ──▶ plan the tree ──▶ build ──▶ checks ──▶ review ──▶ ship
+drop a task ──▶ interview ──▶ plan the tree ──▶ build ──▶ checks ──▶ review ──▶ PR
    anyone      you + planner     planner        builder    system    reviewer   builder
                                                    ▲                     │
                                                    └── came back, with why ┘
@@ -50,7 +50,7 @@ The record of work needs nothing in the repository. Its settings are per machine
 `checks` are what the system runs when a task in that project is submitted; `review` makes a verified task wait for a reviewer who did not do the work. Add `"database": "postgres://…"` to share the record across machines.
 
 ```yaml
-verify: "go test ./..."   # the single command that must pass before ship
+verify: "go test ./..."   # the single command that must pass before a PR
 engineering:
   tier: mvp               # prototype | mvp | production | critical — the customer and rigor the code targets
 designSystem: null        # null → the design round never runs
@@ -134,7 +134,7 @@ This is how one repo makes its reviewers enforce its own reuse-before-build rule
 
 ## The skills
 
-`orchestrate` · `design` · `retro` · `ship` · `self-improve` · `lore` · `setup`
+`orchestrate` · `design` · `create-pr` · `retro` · `self-improve` · `lore` · `setup`
 
 The record's own skill, `idle`, comes with [idle-tasks](../idle-tasks/).
 
