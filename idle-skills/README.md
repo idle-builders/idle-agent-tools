@@ -17,7 +17,7 @@ drop a task ──▶ interview ──▶ plan the tree ──▶ build ──�
 - **The plan is yours.** It is written with you, not handed to you, and nothing in a run may quietly grow it. Work found along the way becomes a task of its own.
 - **No gates — you contradict.** The planner says what is done and on what evidence; you reopen what is not. The higher in the tree, the more it is yours. This is not a hands-off factory.
 - **One planner, no sub-planners.** One agent holds the whole picture and plans every level, so no two tasks decide the same question.
-- **How much ceremony is a judgement, not a setting.** Ambiguity decides how much interview and whether design or architecture happen at all; exposure decides how many review lenses. A hundred bugs and one architectural decision get different treatment.
+- **How much ceremony is a judgement, not a setting.** Ambiguity decides how much interview and whether a design round happens at all; exposure decides how many review lenses. A hundred bugs and one architectural decision get different treatment.
 
 ## What's in here
 
@@ -109,32 +109,32 @@ The skills are deliberately generic — repo-specific knowledge (test layout, wh
 
 ```yaml
 rules:
-  code: .pipeline/rules/typescript.md       # → write-code, architecture, architecture-critique, review
-  testing: .pipeline/rules/testing.md       # → write-tests, architecture, architecture-critique, review, orchestrate
+  code: .pipeline/rules/typescript.md       # → write-code, review
+  testing: .pipeline/rules/testing.md       # → write-tests, review, orchestrate
   design-system: .pipeline/rules/design.md  # → design, write-code, review
-  security: .pipeline/rules/security.md     # → architecture, architecture-critique, write-code, review
+  security: .pipeline/rules/security.md     # → write-code, review
 ```
 
 Rule files live under `.pipeline/rules/` so every host reads the same ones — nothing about them is Claude-, Cursor-, or Codex-specific. They are maintainer-authored and committed: `/setup` writes them with your approval, and a pipeline run may not edit them. Nothing a run writes lands under `.pipeline/` — state lives in the record of work.
 
 | Slot | Read by | Use it for |
 |---|---|---|
-| `code` | write-code, architecture, architecture-critique, review | language / type / style conventions |
-| `testing` | write-tests, architecture, architecture-critique, review, orchestrate | what counts as a test, layout, lanes/fixtures |
-| `architecture` | architecture, architecture-critique, write-code, review | architecture invariants & conventions |
+| `code` | write-code, review | language / type / style conventions |
+| `testing` | write-tests, review, orchestrate | what counts as a test, layout, lanes/fixtures |
+| `architecture` | write-code, review | architecture invariants & conventions |
 | `taste` | orchestrate | standing conventions for how this repo likes things done |
 | `design-system` | design, write-code, review | component budget, tokens, reuse-before-build, promotion |
 | `frontend` | design, write-code, review | client / UI conventions |
 | `visual` | design, review | visual fidelity / regression policy |
 | `aesthetics` | design | aesthetic quality bar |
-| `security` | architecture, architecture-critique, write-code, review | security policy / threat model |
+| `security` | write-code, review | security policy / threat model |
 | `docs` | write-docs, review | documentation voice & conventions |
 
 This is how one repo makes `/review` enforce its own reuse-before-build rule, or `/write-tests` follow its real-vs-mock lane policy, while another repo running the same plugin does something different — same skills, different rules. See [`pipeline.config.example.yml`](pipeline.config.example.yml) for the full slot list.
 
 ## The skills
 
-`orchestrate` · `design` · `architecture` · `architecture-critique` · `write-tests` · `write-code` · `write-docs` · `review` · `retro` · `ship` · `self-improve` · `lore` · `setup`
+`orchestrate` · `design` · `write-tests` · `write-code` · `write-docs` · `review` · `retro` · `ship` · `self-improve` · `lore` · `setup`
 
 The record's own skill, `idle`, comes with [idle-tasks](../idle-tasks/).
 

@@ -72,14 +72,14 @@ vcs: github
 # component budget, reuse-before-build, type conventions, security policy) reaches
 # the otherwise-generic skills. Which skill reads which slot is noted after each.
 rules:
-  code: null           # language / type / style conventions — write-code, architecture, architecture-critique, review
-  testing: null        # what counts as a test, layout, lanes/fixtures, combined/integration seam — write-tests, architecture, architecture-critique, review, orchestrate
-  architecture: null   # architecture invariants & conventions — architecture, architecture-critique, write-code, review
+  code: null           # language / type / style conventions — write-code, review
+  testing: null        # what counts as a test, layout, lanes/fixtures, combined/integration seam — write-tests, review, orchestrate
+  architecture: null   # architecture invariants & conventions — write-code, review
   design-system: null  # component budget, tokens, reuse-before-build, promotion — design, write-code, review
   frontend: null       # client / UI conventions — design, write-code, review
   visual: null         # visual fidelity / regression policy — design, review
   aesthetics: null     # aesthetic quality bar — design
-  security: null       # security policy / threat model — architecture, architecture-critique, write-code, review
+  security: null       # security policy / threat model — write-code, review
   docs: null           # documentation voice & conventions — write-docs, review
   taste: null          # standing conventions for how this repo likes things done — orchestrate
 # The `taste` slot is short, standing conventions only — the answers you have given
