@@ -18,6 +18,23 @@ With no names it runs every eval written so far. `--keep` leaves each run's harn
 
 An eval is one file in `scenarios/`: the intents it shows, a project from `projects/` copied fresh for every run, the harness's starting state, the messages of its sessions, and its checks ([`scenario.ts`](scenario.ts) has the shape and the helpers).
 
+## The bench
+
+The bench is long streams of related work on which a learning harness is set against a frozen one ([design](../../docs/harness/bench.md)). A stream is a series of steps in one project, laid out on disk as a Harbor multi-step task. Each step is a task for a new working session; a verifier outside the sandbox checks it, and the bench approves with a rating or rejects with a reason through `/approve` and `/reject`, as a human would. Improvement runs after every so many steps. A source in `streams/` builds each stream into `streams/.built/`, fetching a public benchmark's data when it draws on one; nothing of a benchmark is committed.
+
+```bash
+node idle-harness/evals/run.ts seq-lab --structure frozen --steps 10
+node idle-harness/evals/bench.ts
+```
+
+`--steps` runs the first steps only, a pilot. `bench.ts` compares each stream's arms over the runs in `results/`: the whole stream's cost with improvement counted apart, approvals, rating, the cost per step at the end, and what learning saved over frozen.
+
+| Stream | Kind of work | Steps | Source |
+|---|---|---|---|
+| `data-desk` | data analysis over one messy export | 40 | E20 |
+| `seq-lab` | molecular biology on raw sequences | 40 | LAB-Bench SeqQA, ten families answerable from the sequence |
+| `or-models` | operations research word problems | 30 | MAMO ComplexLP and IndustryOR, as cleaned by LLM4OR |
+
 ## Catalogue
 
 | Eval | Intents | Scenario | Passes when |

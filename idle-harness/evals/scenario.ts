@@ -14,13 +14,19 @@ export type Check = { name: string; pass: boolean | null; detail?: string };
 // One step of an eval: a message for a new working session — of the run's harness or of another harness of the run
 // (named by a short key), in the run's project or in another (`in`: a folder of projects/, with `#key` for a second
 // copy) — an improvement session of a harness, started the way the base starts one, a task reopened in the session
-// just run when `reopen` returns why, or something the eval does between sessions, such as leaving a comment.
+// just run when `reopen` returns why, a review of the session just run — what `review` returns is sent to it, again
+// and again, until it returns null or approves — or something the eval does between sessions, such as leaving a
+// comment. A session started for a `task` keeps it, so that reviews count toward it.
 export type Step =
   | string
-  | { message: string; harness?: string; in?: string }
+  | { message: string; harness?: string; in?: string; task?: string }
   | { improve: true; harness?: string }
   | { reopen(run: Run, n: number): string | null }
+  | { review(run: Run, n: number): string | null }
   | ((run: Run) => void | Promise<void>);
+
+// What a reviewer's check said about one attempt at a task.
+export type Verdict = { reward: number; rating?: number; feedback?: string };
 
 // How a run treats what working sessions change. layered, as the base does: each keeps its changes in a layer of its
 // own, and only improvement sessions, taking up what several layers show, change what the next task starts with. open:
@@ -32,7 +38,7 @@ export type Scenario = {
   id: string;
   title: string;
   intents: string[]; // the intents in INTENT.md it shows
-  project: string; // a folder under evals/projects/, copied fresh for every run
+  project: string; // a folder under evals/projects/, or an absolute path, copied fresh for every run
   minutes?: number; // how long one session may take before the run counts as failed; 15 if not given
   setup?(run: Run): void | Promise<void>; // the harness's starting state, before the first step
   seed?(run: Run): void; // with --seed: what a harness specialised on this work would start with, after setup
@@ -48,6 +54,7 @@ export class Run {
   sessions = new Map<number, string>(); // which harness ran session n
   improvements = new Set<number>(); // which sessions were for improvement
   reopened = new Map<number, number>(); // how often the task of session n was reopened
+  verdicts = new Map<number, Verdict[]>(); // what the reviewer's check said of session n's work, attempt by attempt
   places = new Map<string, string>(); // other project copies of the run, by the `in` that named them
   where = new Map<number, string>(); // the project copy session n worked in
   structure: Structure = 'layered';

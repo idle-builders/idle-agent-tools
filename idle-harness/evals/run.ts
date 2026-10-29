@@ -1,8 +1,10 @@
 // Runs evals through a real model: each scenario a few times, in throwaway harnesses, the way a user would.
 //
-//   node idle-harness/evals/run.ts [E1 E2 …] [--runs <n>] [--keep] [--structure layered|open|frozen] [--seed] [--no-sandbox]
+//   node idle-harness/evals/run.ts [E1 E2 … | <stream> …] [--runs <n>] [--keep] [--structure layered|open|frozen] [--seed]
+//                                  [--steps <n>] [--no-sandbox]
 //
-// Every run writes its result to evals/results/. --keep leaves the harnesses and the project copy in place.
+// An eval is a scenario in scenarios/ or a stream of the bench in streams/ (see stream.ts); --steps runs only the
+// first n steps of a stream. Every run writes its result to evals/results/. --keep leaves the harnesses and the project copy in place.
 // --structure says what becomes of the changes working sessions make (see Structure). Improvement sessions start as
 // the base starts them, from its brief. --seed starts the harness as one specialised on the work would start, where
 // the eval says what that is. Sessions run sandboxed unless --no-sandbox (see sandbox).
@@ -10,11 +12,12 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { harnessDir, sessionDir } from '../src/home.ts';
 import { holder } from '../src/record.ts';
 import { ledger, Run, told } from './scenario.ts';
+import { folder, names, stream } from './stream.ts';
 import type { Check, Scenario, Structure } from './scenario.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -44,12 +47,12 @@ function sandbox(run: Run): string[] {
   return ['sandbox-exec', '-p', profile];
 }
 
-// One session: the plain front end with --once, as a user would start it, or an improvement session as the base
-// starts one (no message). Too long counts as failed, and so does a session whose loop is still running after its
+// One session: the plain front end with --once, as a user would start it, for a task if it has one, or an
+// improvement session as the base starts one (no message). Too long counts as failed, and so does a session whose loop is still running after its
 // front end ended: the run would read it half-done.
-function session(run: Run, cwd: string, harness: string, n: number, message: string | null, minutes: number): Promise<{ code: number | null; timedOut: boolean; leftRunning: boolean }> {
+function session(run: Run, cwd: string, harness: string, n: number, message: string | null, minutes: number, task?: string): Promise<{ code: number | null; timedOut: boolean; leftRunning: boolean }> {
   return new Promise((done) => {
-    const how = message === null ? ['improve', harness, '--session', run.id(n)] : ['chat', harness, message, '--session', run.id(n), '--once'];
+    const how = message === null ? ['improve', harness, '--session', run.id(n)] : ['chat', harness, message, '--session', run.id(n), '--once', ...(task ? ['--task', task] : [])];
     const [command, ...args] = [...sandbox(run), process.execPath, bin, ...how];
     const child = spawn(command, args, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
     let timedOut = false;
@@ -67,7 +70,7 @@ function session(run: Run, cwd: string, harness: string, n: number, message: str
 
 // The project starts as a fresh git repository, so a check can see what the harness changed.
 function project(name: string, cwd: string) {
-  cpSync(join(here, 'projects', name), cwd, { recursive: true });
+  cpSync(isAbsolute(name) ? name : join(here, 'projects', name), cwd, { recursive: true });
   const git = (...args: string[]) => spawnSync('git', ['-c', 'user.name=eval', '-c', 'user.email=eval@localhost', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', ...args], { cwd });
   git('init', '-q');
   git('add', '-A');
@@ -95,9 +98,14 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
   if (seeded) scenario.seed?.(run);
   const sessions: Awaited<ReturnType<typeof session>>[] = [];
   const minutes = scenario.minutes ?? 15;
-  const fresh = (step: Scenario['steps'][number]): step is string | { message: string; harness?: string; in?: string } | { improve: true; harness?: string } =>
+  const fresh = (step: Scenario['steps'][number]): step is string | { message: string; harness?: string; in?: string; task?: string } | { improve: true; harness?: string } =>
     typeof step === 'string' || (typeof step === 'object' && ('message' in step || ('improve' in step && structure !== 'frozen')));
   const messages = scenario.steps.filter(fresh).length;
+  // Another message to session n, in the session it was: a reopening or a review.
+  const again = async (n: number, message: string) => {
+    const more = await session(run, run.where.get(n)!, run.sessions.get(n)!, n, message, minutes);
+    sessions[n - 1] = { code: more.code ?? sessions[n - 1].code, timedOut: sessions[n - 1].timedOut || more.timedOut, leftRunning: sessions[n - 1].leftRunning || more.leftRunning };
+  };
   for (const step of scenario.steps) {
     if (typeof step === 'function') { await step(run); continue; }
     if (typeof step === 'object' && 'reopen' in step) {
@@ -106,13 +114,22 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
       if (!why) continue;
       run.reopened.set(n, (run.reopened.get(n) ?? 0) + 1);
       process.stderr.write(`  session ${n} reopened\n`);
-      const again = await session(run, run.where.get(n)!, run.sessions.get(n)!, n, why, minutes);
-      sessions[n - 1] = { code: again.code ?? sessions[n - 1].code, timedOut: sessions[n - 1].timedOut || again.timedOut, leftRunning: sessions[n - 1].leftRunning || again.leftRunning };
+      await again(n, why);
+      continue;
+    }
+    if (typeof step === 'object' && 'review' in step) {
+      const n = run.sessions.size;
+      for (let said = n ? step.review(run, n) : null; said; said = step.review(run, n)) {
+        if (said.startsWith('/reject')) run.reopened.set(n, (run.reopened.get(n) ?? 0) + 1);
+        process.stderr.write(`  session ${n} ${said.startsWith('/approve') ? 'approved' : 'rejected'}\n`);
+        await again(n, said);
+        if (said.startsWith('/approve')) break;
+      }
       continue;
     }
     if (!fresh(step)) continue;
-    const { message, harness, improve, in: place } = typeof step === 'string' ? { message: step, harness: undefined, improve: false, in: undefined }
-      : 'improve' in step ? { message: null, harness: step.harness, improve: true, in: undefined } : { ...step, improve: false };
+    const { message, harness, improve, in: place, task } = typeof step === 'string' ? { message: step, harness: undefined, improve: false, in: undefined, task: undefined }
+      : 'improve' in step ? { message: null, harness: step.harness, improve: true, in: undefined, task: undefined } : { ...step, improve: false };
     if (place && !run.places.has(place)) {
       run.places.set(place, mkdtempSync(join(tmpdir(), `${run.name}-${place.replace(/\W/g, '-')}-`)));
       project(place.split('#')[0], run.places.get(place)!);
@@ -123,7 +140,7 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
     if (improve) run.improvements.add(n);
     process.stderr.write(`  session ${n}/${messages}${harness ? ` in harness ${harness}` : ''}${place ? ` in ${place}` : ''}${improve ? ' (improvement)' : ''}\n`);
     if (structure === 'open') open(harnessDir(run.harnessName(harness)));
-    sessions.push(await session(run, run.at(place), run.harnessName(harness), n, message, minutes));
+    sessions.push(await session(run, run.at(place), run.harnessName(harness), n, message, minutes, task));
   }
   let checks: Check[];
   try {
@@ -145,7 +162,7 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
     model: entries.find((entry) => entry.model)?.model ?? null,
     cost: +(sum(entries) + run.readingCost).toFixed(4), readingCost: +run.readingCost.toFixed(4),
     turns: entries.length, calls: entries.filter((entry) => entry.usage).length, tookOver: entries.filter((entry) => entry.threw).length,
-    sessions: sessions.map((s, i) => ({ n: i + 1, harness: run.sessions.get(i + 1), improvement: run.improvements.has(i + 1), reopened: run.reopened.get(i + 1) ?? 0, exit: s.code, timedOut: s.timedOut, leftRunning: s.leftRunning, turns: run.records(i + 1).length, cost: sum(run.records(i + 1)) })),
+    sessions: sessions.map((s, i) => ({ n: i + 1, harness: run.sessions.get(i + 1), improvement: run.improvements.has(i + 1), reopened: run.reopened.get(i + 1) ?? 0, verdicts: run.verdicts.get(i + 1) ?? [], exit: s.code, timedOut: s.timedOut, leftRunning: s.leftRunning, turns: run.records(i + 1).length, cost: sum(run.records(i + 1)) })),
     checks, passed: checks.every((c) => c.pass !== false),
     changes, // when, where and how the harness changed
   };
@@ -165,13 +182,16 @@ const keep = option('--keep') !== undefined;
 const sandboxed = !(args.includes('--no-sandbox') && args.splice(args.indexOf('--no-sandbox'), 1)) && existsSync('/usr/bin/sandbox-exec');
 const seeded = args.includes('--seed') && Boolean(args.splice(args.indexOf('--seed'), 1));
 const runs = Number(option('--runs') ?? 1);
+const limit = option('--steps');
 const structure = (option('--structure') ?? 'layered') as Structure;
 if (!['layered', 'open', 'frozen'].includes(structure)) throw new Error('--structure is layered, open or frozen');
 const variant = [structure === 'layered' ? '' : structure, seeded ? 'seeded' : ''].filter(Boolean).join(', ');
 const files = readdirSync(join(here, 'scenarios')).filter((file) => file.endsWith('.ts')).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 const scenarios: Scenario[] = [];
 for (const file of files) scenarios.push((await import(join(here, 'scenarios', file))).default);
-const chosen = args.length ? scenarios.filter((s) => args.map((a) => a.toUpperCase()).includes(s.id)) : scenarios;
+const wanted = args.map((a) => a.toLowerCase());
+for (const name of names().filter((name) => wanted.includes(name))) scenarios.push(stream(await folder(name), limit ? Number(limit) : undefined));
+const chosen = args.length ? scenarios.filter((s) => wanted.includes(s.id.toLowerCase())) : scenarios;
 
 for (const scenario of chosen) {
   const results = [];

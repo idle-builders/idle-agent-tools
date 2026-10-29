@@ -845,3 +845,29 @@ test('a tool call a turn builds in its own shape runs, is recorded in the usual 
     fake.close();
   }
 });
+
+test('a stream of the bench: read from its Harbor layout, checked outside the session, approved or rejected as often as it allows', async () => {
+  const { toml, write, stream } = await import(`${root}/evals/stream.ts`);
+  const read = toml('# a stream\n[metadata]\ntitle = "t" # trailing\nimprove_every = 2\nkinds = ["a", \'b\']\n\n[[steps]]\nname = "one"\n[steps.verifier]\ntimeout_sec = 5\n\n[[steps]]\nname = "two"\nmin_reward = 0.5\n');
+  assert.deepEqual(read, { metadata: { title: 't', improve_every: 2, kinds: ['a', 'b'] }, steps: [{ name: 'one', verifier: { timeout_sec: 5 } }, { name: 'two', min_reward: 0.5 }] });
+
+  const { home } = sandbox();
+  const dir = join(home, 'stream');
+  const test = 'if [ "$(cat answer 2>/dev/null)" = 42 ]; then echo \'{"reward": 1}\' > "$REWARD"; else echo \'{"reward": 0, "feedback": "not 42"}\' > "$REWARD"; fi\n';
+  write(dir, { title: 'answers', metadata: { improve_every: 2, reopens: 1 }, project: { 'README.md': 'hi' }, tests: { 'test.sh': test }, steps: ['a', 'b', 'c'].map((name) => ({ name, instruction: `step ${name}` })) });
+  assert.match(readFileSync(join(dir, 'task.toml'), 'utf8'), /\[\[steps\]\]\nname = "c"/);
+  const scenario = stream(dir);
+  assert.deepEqual(scenario.steps.map((s) => (s.message ? `${s.message} for ${s.task}` : s.review ? 'review' : s.improve ? 'improve' : '?')),
+    ['step a for stream-a', 'review', 'step b for stream-b', 'review', 'improve', 'step c for stream-c', 'review']);
+
+  const project = join(home, 'project');
+  mkdirSync(project);
+  const run = { verdicts: new Map(), where: new Map([[1, project], [2, project]]), cwd: project };
+  const review = scenario.steps[1].review;
+  assert.equal(review(run, 1), '/reject not 42');
+  assert.equal(review(run, 1), null, 'one reopening, then the step stays open');
+  writeFileSync(join(project, 'answer'), '42');
+  assert.equal(review(run, 2), '/approve 5');
+  assert.equal(review(run, 2), null);
+  assert.deepEqual(run.verdicts.get(2), [{ reward: 1 }]);
+});
