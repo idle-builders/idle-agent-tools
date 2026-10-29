@@ -31,7 +31,7 @@
     "defaultPrompt": [
       "Run /orchestrate for this item.",
       "Register a new work item.",
-      "Review this change with /review."
+      "Show me where this work stands."
     ],
     "brandColor": "#2563EB"
   }

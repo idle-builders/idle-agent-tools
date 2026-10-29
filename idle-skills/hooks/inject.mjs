@@ -50,7 +50,7 @@ const CODEX_MAX_LINES = positiveInt(process.env.PIPELINE_INJECT_MAX_LINES, 60);
 const CHECK_TIMEOUT_MS = positiveInt(process.env.PIPELINE_CHECK_TIMEOUT_MS, 45_000);
 
 const DIGEST_SKILLS = new Set([
-  'design', 'ship', 'review',
+  'design', 'ship',
 ]);
 
 // SubagentStart: what each role needs waiting for it when it wakes up.
@@ -64,10 +64,6 @@ const AGENT_EXTRA = {
   '': { checks: true, checksNote: 'baseline, ran before this agent started' },
 };
 const DEFAULT_AGENT = '';
-
-const EXTRA = {
-  review: { checks: true, diff: true },
-};
 
 let lastEvent = 'skill';
 let maxLines = MAX_LINES;
@@ -268,7 +264,7 @@ function buildInjection(format) {
     if (!extra) return null;
   } else {
     if (!DIGEST_SKILLS.has(target.name)) return null;
-    extra = EXTRA[target.name] ?? {};
+    extra = {};
   }
 
   const root = process.cwd();

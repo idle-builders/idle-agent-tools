@@ -67,12 +67,12 @@ function claudeContext(result) {
   return JSON.parse(result.stdout).hookSpecificOutput.additionalContext;
 }
 
-test('review skill gets state, fresh check results, and the diff', () => {
+test('a reviewer gets state, fresh check results, and the diff', () => {
   const { root, since, id } = fixture();
-  const result = run(root, 'claude', skillPayload('review'));
+  const result = run(root, 'claude', spawnPayload('idle-reviewer'));
   assert.equal(result.status, 0);
   const context = claudeContext(result);
-  assert.match(context, new RegExp(`skill: review, task: ${id}`));
+  assert.match(context, new RegExp(`agent: idle-reviewer, task: ${id}`));
   assert.match(context, /Demo fix/);
   assert.match(context, /The demo no longer breaks/);
   assert.match(context, /## checks — echo CHECKS-GREEN \(exit 0, tree [0-9a-f]+\+dirty\)/);
@@ -85,7 +85,7 @@ test('checks.preSpawn overrides verify and keeps a quoted #', () => {
   const { root } = fixture({
     config: 'verify: "echo FULL-GATE"\nchecks:\n  preSpawn: "echo FAST#TAG"\n',
   });
-  const context = claudeContext(run(root, 'claude', skillPayload('review')));
+  const context = claudeContext(run(root, 'claude', spawnPayload('idle-reviewer')));
   assert.match(context, /## checks — echo FAST#TAG/);
   assert.match(context, /FAST#TAG/);
   assert.doesNotMatch(context, /FULL-GATE/);
@@ -93,7 +93,7 @@ test('checks.preSpawn overrides verify and keeps a quoted #', () => {
 
 test('a flag-shaped since is never handed to git', () => {
   const { root } = fixture({ since: '--stat' });
-  const context = claudeContext(run(root, 'claude', skillPayload('review')));
+  const context = claudeContext(run(root, 'claude', spawnPayload('idle-reviewer')));
   assert.doesNotMatch(context, /## diff/);
 });
 
@@ -101,7 +101,7 @@ test('the most recently touched root wins', () => {
   const { root, id } = fixture();
   const newer = idle(root, 'task', '--title', 'Created later, then left alone');
   idle(root, 'task', '--id', id, '--feedback', 'still being worked');
-  const context = claudeContext(run(root, 'claude', skillPayload('review')));
+  const context = claudeContext(run(root, 'claude', spawnPayload('idle-reviewer')));
   assert.match(context, new RegExp(`task: ${id}`));
   assert.doesNotMatch(context, new RegExp(`task: ${newer.id}`));
 });
@@ -112,29 +112,29 @@ test('non-pipeline skills get no injection', () => {
 });
 
 test('no task in the record means silence', () => {
-  assert.equal(run(emptyRepo(), 'claude', skillPayload('review')).stdout, '');
+  assert.equal(run(emptyRepo(), 'claude', spawnPayload('idle-reviewer')).stdout, '');
 });
 
 test('finished roots are not injected', () => {
   const { root } = fixture({ archived: true });
-  assert.equal(run(root, 'claude', skillPayload('review')).stdout, '');
+  assert.equal(run(root, 'claude', spawnPayload('idle-reviewer')).stdout, '');
 });
 
 test('check results are cached, and slow checks fall back to the stale cache', () => {
   const { root } = fixture({ verify: 'echo EARLIER-GREEN' });
-  run(root, 'claude', skillPayload('review'));
+  run(root, 'claude', spawnPayload('idle-reviewer'));
   writeFileSync(join(root, 'pipeline.config.yml'), 'verify: "sleep 2"\n');
-  const context = claudeContext(run(root, 'claude', skillPayload('review'), { PIPELINE_CHECK_TIMEOUT_MS: '300' }));
+  const context = claudeContext(run(root, 'claude', spawnPayload('idle-reviewer'), { PIPELINE_CHECK_TIMEOUT_MS: '300' }));
   assert.match(context, /STALE/);
   assert.match(context, /EARLIER-GREEN/);
 });
 
 test('opencode format prints plain text', () => {
   const { root } = fixture();
-  const result = run(root, 'opencode', 'review');
+  const result = run(root, 'opencode', 'ship');
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /skill: review, task: T-/);
-  assert.match(result.stdout, /CHECKS-GREEN/);
+  assert.match(result.stdout, /skill: ship, task: T-/);
+  assert.match(result.stdout, /Demo fix/);
   assert.doesNotMatch(result.stdout, /hookSpecificOutput/);
 });
 
@@ -153,7 +153,7 @@ test('codex gets plain text, never JSON-leading, within a tighter budget, and al
 
 test('kill switch disables injection', () => {
   const { root } = fixture();
-  assert.equal(run(root, 'claude', skillPayload('review'), { PIPELINE_SKILL_INJECT: 'off' }).stdout, '');
+  assert.equal(run(root, 'claude', spawnPayload('idle-reviewer'), { PIPELINE_SKILL_INJECT: 'off' }).stdout, '');
 });
 
 test('malformed payload never breaks the load', () => {
