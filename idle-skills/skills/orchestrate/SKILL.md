@@ -25,7 +25,8 @@ Keep going until every targeted task is done or waiting on the maintainer.
 3. **Play back every rewrite.** Before acting on a rewritten goal, a requirements document, a long-run
    objective, or a default they waved through, show it next to their words and say what changed.
 4. **Show something small before building something big.** For anything they will look at — a screen, a
-   render, an output, an API shape — make the smallest version and get their reaction first.
+   render, an output, an API shape — make the smallest version and get their reaction first. For a
+   user-facing surface, use `/design`.
 
 Their latest words win over a recorded rule. Supersede the rule; do not weigh it against them.
 
