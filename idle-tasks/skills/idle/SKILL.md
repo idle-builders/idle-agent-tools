@@ -1,7 +1,6 @@
 ---
 name: idle
 description: "Read and write the shared record of work: tasks that nest into trees, and memories (decisions, assumptions, taste, and retros). Use whenever work is coordinated through the task backend — to drop a task, structure one into a tree, claim a task, give feedback, record a memory, submit, or see where a piece of work stands. Workflow-neutral."
-persona: any
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
 ---
@@ -26,7 +25,7 @@ names what a task touches — paths, modules, systems; two tasks whose scopes ov
 at the same time.
 
 A task's `plan` is the condensed, worker-facing plan; its `interview` is the Q&A progression it came from.
-Both sit on the root once it has been refined, and on any deeper task that needed its own.
+Both sit on the root once the maintainer has been interviewed, and on any deeper task that needed its own.
 
 A **memory** (`--summary`, `--details`, optional `--rejected`) is a structured entry anyone may record:
 - `--kind decision` (default): a choice made where the plan was silent (`--summary` what was chosen, `--details` why, `--rejected` alternatives rejected);
@@ -104,14 +103,6 @@ someone who did not do the work.
 
 A worker needs nothing but its brief. Start a session in any harness with the brief as the prompt and
 `IDLE_BY` set to who it is: `IDLE_BY=<harness>/<model> <harness> "$(idle show <id> --brief)"`.
-
-## Keeping work alive
-
-For a scheduled run in any harness. Each step is one read and at most one move:
-
-1. `show --state` on each open root task of the project.
-2. A task still `submitted` means its checks never finished: submit it again, where the work is.
-3. If anything else needs attention, start one planning session on that root.
 
 ## Target
 
