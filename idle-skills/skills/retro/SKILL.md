@@ -1,44 +1,33 @@
 ---
 name: retro
-description: "Record concrete successes and friction after a task, session, or pipeline run. Observe from artifacts and trajectories without fixing, assigning work, or changing process."
+description: "Record what went well and where the work diverged from what the maintainer wanted, as retro memories on a root task. Run when a root is done, archived, or untouched for a week. Observes only."
 persona: any
 applies-to: [frontend, backend, application, framework, infra]
-user-invocable: false
+user-invocable: true
 ---
 
 # Retro
 
-Read the tree's state when the record of work is present — what came back and why, what was blocked,
-feedback from the work, superseded decisions and assumptions, outer `outcome` entries, and the
-mechanical bounce counters (`check_failures`, `review_bounces`, `reopens`) — then VCS history,
-verification/review output, lore, and session trajectories. Record terse observations as `retro`
-memories on the root task in the record of work (`memory` with `--task <root> --kind retro --summary "…" --details "…"`)
-when present (or report them directly in the session when run standalone without a task record), never to
-the git working tree. Because `retro` memories live outside the repository, `/retro` runs after `/create-pr`
-without dirtying the branch or racing with CI.
+Run on a root task when it is done, archived, or untouched for a week, and it has no `retro` memory yet.
 
-Each `retro` memory records observation kind (`success`, `friction`, `divergence`, or `cost`) and concise
-observation in `summary`, and its source, concrete evidence, and optional related known pattern in `details`.
-Record what worked so later cleanup does not remove it.
+Read the tree's state: what came back and why, what the maintainer reopened or superseded, feedback,
+`outcome`, and the bounce counters (`check_failures`, `review_bounces`, `reopens`). Then the
+conversation, where you have it, and the history of the branch.
 
-A `divergence` entry records where the agent's choice was not what the maintainer wanted — read them
-out of what they reopened, the decisions or assumptions they superseded, in-session `taste` nudges, and
-anything they asked to be changed or simplified. Record the choice, **the underlying assumption that
-failed**, what they wanted instead, and where the plan was silent. Do not write `.pipeline/rules/`
-yourself, and never treat one correction as a convention.
+Record each observation as a `retro` memory on the root (`memory --task <root> --kind retro`), never in
+the repository. `summary` names the kind and the observation; `details` the evidence.
 
-Close each root task with one `cost` entry using the mechanical bounce counters (`check_failures`,
-`review_bounces`, `reopens`) when present, plus what ran, how many critiques and reviews occurred, and
-how much of the effort went to rework or infrastructure rather than the outcome. Whether a run was
-proportionate is only visible in aggregate.
+- **divergence** — the one that matters most: where the work was not what the maintainer wanted. Quote
+  what they said, what was built instead, and the assumption that produced it. Note whether their words
+  were written down, and where.
+- **success** — what worked, so nobody removes it later.
+- **friction** — what cost time without moving the goal.
+- **cost** — one per root: the bounce counters, and how much of the effort went to rework.
 
-Read project memory in the record of work (when present) and `.pipeline/compound-candidates.md` (when
-present) before writing a new free-text observation, and reuse the matching candidate's identifier when
-the same behaviour recurs; write free text only for friction with no matching entry. Read them, never
-mutate candidate state here — `/self-improve` owns that.
+Search project memory first and reuse an existing observation's wording when the same thing recurs.
 
-Observe only. Do not diagnose beyond evidence, fix code or prompts, assign follow-up work, inflate one
-event into a pattern, or duplicate an existing observation without new evidence.
+Observe only: no fixes, no follow-up tasks, no rule changes, and one event is not a pattern. That is
+`/self-improve`'s job.
 
 ## Target
 
