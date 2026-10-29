@@ -17,13 +17,13 @@ drop a task ──▶ interview ──▶ plan the tree ──▶ build ──�
 - **The plan is yours.** It is written with you, not handed to you, and nothing in a run may quietly grow it. Work found along the way becomes a task of its own.
 - **No gates — you contradict.** The planner says what is done and on what evidence; you reopen what is not. The higher in the tree, the more it is yours. This is not a hands-off factory.
 - **One planner, no sub-planners.** One agent holds the whole picture and plans every level, so no two tasks decide the same question.
-- **How much ceremony is a judgement, not a setting.** Ambiguity decides how much interview and whether a design round happens at all; exposure decides how many review lenses. A hundred bugs and one architectural decision get different treatment.
+- **Your words travel intact.** The lead quotes what you said rather than paraphrasing it, binds standing intent where every task sees it, plays back any rewrite before acting on it, and shows you something small before building something big.
 
 ## What's in here
 
 | Path | Role |
 |---|---|
-| [`skills/`](skills/) | The 15 workflow skills (`SKILL.md`, [Agent Skills](https://agents.md/) standard) |
+| [`skills/`](skills/) | The 7 workflow skills (`SKILL.md`, [Agent Skills](https://agents.md/) standard) |
 | [`personas/`](personas/) | Persona source of truth; [`../scripts/generate-agents.mjs`](../scripts/generate-agents.mjs) renders every host format below |
 | [`agents/`](agents/) | Claude-format `idle-planner` / `idle-reviewer` / `idle-builder` (generated) |
 | [`agents-cursor/`](agents-cursor/), [`agents-antigravity/`](agents-antigravity/), [`.opencode/agents/`](.opencode/agents/), [`.codex/agents/`](.codex/agents/) | The same personas for Cursor, Antigravity, opencode and Codex (generated) |
@@ -110,7 +110,7 @@ Not in `pipeline.config.yml`. What the maintainer prefers everywhere is project 
 
 The record's own skill, `idle`, comes with [idle-tasks](../idle-tasks/).
 
-Drop a task — `idle task --title "…"`, or just tell the agent — and run it end to end with `/orchestrate <id>`. After several tasks (or on a weekly schedule), run `/self-improve` to mine the retro log and project memory for recurring patterns and propose process fixes. Use `/lore` anytime to capture or surface tribal knowledge.
+Drop a task — `idle task --title "…"`, or just tell the agent — and run it end to end with `/orchestrate <id>`. `/create-pr` opens a PR when you want one; `/retro` records how a finished root went. After several tasks (or on a weekly schedule), `/self-improve` looks for the corrections you keep making and proposes fixes. Use `/lore` anytime to capture or surface tribal knowledge.
 
 ## License
 
