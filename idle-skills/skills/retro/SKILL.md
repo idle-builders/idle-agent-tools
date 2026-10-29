@@ -14,7 +14,7 @@ mechanical bounce counters (`check_failures`, `review_bounces`, `reopens`) — t
 verification/review output, lore, and session trajectories. Record terse observations as `retro`
 memories on the root task in the record of work (`memory` with `--task <root> --kind retro --summary "…" --details "…"`)
 when present (or report them directly in the session when run standalone without a task record), never to
-the git working tree. Because `retro` memories live outside the repository, `/retro` runs after `/ship`
+the git working tree. Because `retro` memories live outside the repository, `/retro` runs after `/create-pr`
 without dirtying the branch or racing with CI.
 
 Each `retro` memory records observation kind (`success`, `friction`, `divergence`, or `cost`) and concise
