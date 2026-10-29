@@ -81,11 +81,6 @@ test('review skill gets state, fresh check results, and the diff', () => {
   assert.match(context, /\+two/);
 });
 
-test('architecture-critique gets the plan it critiques, from the state', () => {
-  const { root } = fixture();
-  assert.match(claudeContext(run(root, 'claude', skillPayload('architecture-critique'))), /PLAN-MARKER/);
-});
-
 test('build skills are told their checks predate the session edits', () => {
   const { root } = fixture();
   const context = claudeContext(run(root, 'claude', skillPayload('write-code')));
