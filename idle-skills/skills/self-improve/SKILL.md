@@ -1,74 +1,46 @@
 ---
 name: self-improve
-description: "Review accumulated retros, outcomes, interviews, and decisions to identify recurring evidence-backed patterns and propose surgical rule, memory, or skill changes for human approval. Works both when triggered manually and on a weekly schedule. Never applies changes automatically."
-argument-hint: "[optional: 'review', 'status', or focus area]"
+description: "Find what the maintainer keeps correcting across finished work, and propose the smallest change that would have prevented it — a taste memory, a line in AGENTS.md, lore, or a skill edit — for their approval. Run on demand or weekly. Never applies changes."
+argument-hint: "[optional: focus area]"
 persona: any
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
 ---
 
-# Self-Improve
+# Self-improve
 
-Run either **manually on demand** (when the maintainer invokes `/self-improve` in a session) or **on the
-weekly schedule** (`## Weekly routine`), after several tasks — never inside an active build loop.
+Run on demand or on the weekly schedule, never inside an active build.
 
-Read project memories (`decision`, `assumption`, `taste`, and `retro` entries) in the record of work
-when present, then read this project's root tasks — including their `outcome` (PR review comments, user
-feedback, business KPIs, runtime signals) and `interview` Q&A. When
-`.pipeline/compound-candidates.md` exists, or when running standalone without a task record, also read
-`.pipeline/compound-candidates.md`, recent VCS history, merged pull requests and review comments, and
-session trajectories.
+## Read
 
-Mine four sources of recurring evidence across completed work, including patterns that occurred inside
-sessions without causing a formal retro failure:
+Per project, in the record of work: `retro` memories, `divergence` first; the interviews on root tasks;
+superseded decisions and assumptions; `taste` memories; and `outcome` — PR review comments, user feedback,
+what happened after merge. Then merged PRs and their review comments.
 
-1. **Repeated steering in `interview` Q&As and standing `taste` memories** — where the maintainer
-   repeatedly redirected recommendations in the same direction across separate tasks (distinguishing
-   recurring general taste from a localized answer to a single question);
-2. **Repeated local `decision` memories and invalidated `assumption` memories** — where builders or
-   planners across separate tasks had to make the same unguided choice or tripped over the same false
-   premise;
-3. **`retro` memories** (`success`, `friction`, `divergence`, `cost`);
-4. **Outer `outcome` signals** — human PR review comments, user feedback, business KPIs, or post-ship
-   regressions.
+Look for the same correction recurring across separate roots: the maintainer redirecting the work the
+same way, builders making the same unguided choice, the same false premise. Two independent occurrences
+qualify a standing taste; three qualify a change to process or a skill.
 
-Group observations only when they describe the same behavioural or taste mechanism. Three independent
-occurrences qualify a process/skill pattern for consideration; two independent occurrences across separate
-tasks qualify a recurring general `taste` or domain convention. Track emerging candidates in project
-memory when the record of work is present (or in `.pipeline/compound-candidates.md` when working without
-it) so candidate tracking stays out of active feature branches.
+## Propose
 
-When triggered manually, present each confirmed pattern directly to the maintainer in the session with:
+For each pattern:
 
-- occurrences and evidence across roots/sessions;
-- likely mechanism (including the underlying false assumption, where applicable) and competing explanation;
-- behavior worth preserving;
-- one smallest proposed change: a project-memory entry, an amendment to a `.pipeline/rules/<slot>.md`
-  file (`taste`, `code`, `testing`, `architecture`, `security`, `design-system`, `frontend`, `visual`,
-  `docs`), a `@lore` comment, or a surgical skill change;
-- expected benefit, regression risk, and how to validate it.
+- the occurrences, with the maintainer's words quoted;
+- the mechanism, and the competing explanation;
+- what works and must be kept;
+- one smallest change: a `taste` memory, a line in `AGENTS.md` or `CLAUDE.md`, a `@lore` line, or a skill
+  edit — preferring whichever the agents that made the mistake would actually have read;
+- how to tell whether it worked.
 
-Quote the corrections or repeated decisions the rule would have prevented. Never propose one from a
-single occurrence, and propose a repository rule or standing taste only when it holds across the
-repository — localized choices belong in that task's plan, and rule files stay short enough to read.
-
-Propose; never apply policy or rule-file edits without human approval. Do not delete history, convert
-anecdotes into mandates, or bundle unrelated changes.
+Never propose from one occurrence, and never apply anything without the maintainer's approval.
 
 ## Weekly routine
 
-When triggered by a weekly scheduled automation in any harness across all projects (or the current
-repository when run standalone):
-
-1. Find every project with new completed work, retros, outcomes, or decisions since the last
-   `/self-improve` pass (across projects in the record of work when present, or in the repository's recent
-   VCS and PR history when standalone).
-2. Run the four-source distillation above for each active project, recording new 1-occurrence candidates
-   in project memory (or `.pipeline/compound-candidates.md`).
-3. When a pattern reaches threshold (2+ independent occurrences across separate tasks for general
-   `taste`/domain conventions, 3+ for process/skill changes), drop a `proposed` root task in that project
-   (or surface the proposal in the routine report when standalone) carrying the quoted evidence and exact
-   proposed `.pipeline/rules/` or skill diff for human approval. Never edit rules or skills unattended.
+1. Run `/retro` on every root that is done, archived, or untouched for a week and has no `retro` memory.
+2. For each project with new retros, outcomes or superseded memories since the last pass, run the reading
+   above.
+3. For a pattern at threshold, drop a `proposed` root task in that project carrying the evidence and the
+   exact change. Never edit memory, rules or skills unattended.
 
 ## Target
 
