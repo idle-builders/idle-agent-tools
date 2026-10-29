@@ -2,7 +2,7 @@
 # Copy this to pipeline.config.yml and edit. Skills read these values instead of
 # hardcoding anything (they reference them as {{verify}}, {{vcs}}, ...).
 
-# The single command that must pass before a work package can ship.
+# The single command that must pass before work goes into a PR.
 # Tests for a library, `terraform plan` + policy for infra, E2E for an app —
 # what "green" means is up to you, as long as one command produces it.
 verify: "npm run verify"
@@ -31,7 +31,7 @@ designSystem: null
 #   path: "src/design-system"
 #   tokens: "src/design-system/tokens.css"
 
-# Version control + where "ship" opens PRs and waits for CI. github | gitlab | none
+# Version control + where /create-pr opens PRs and waits for CI. github | gitlab | none
 vcs: github
 
 # Optional worktree lifecycle commands and contamination checks. Configure only
