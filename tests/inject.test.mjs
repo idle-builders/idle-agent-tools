@@ -81,13 +81,6 @@ test('review skill gets state, fresh check results, and the diff', () => {
   assert.match(context, /\+two/);
 });
 
-test('build skills are told their checks predate the session edits', () => {
-  const { root } = fixture();
-  const context = claudeContext(run(root, 'claude', skillPayload('write-code')));
-  assert.match(context, /baseline, ran before this session's edits/);
-  assert.doesNotMatch(context, /## diff/);
-});
-
 test('checks.preSpawn overrides verify and keeps a quoted #', () => {
   const { root } = fixture({
     config: 'verify: "echo FULL-GATE"\nchecks:\n  preSpawn: "echo FAST#TAG"\n',
