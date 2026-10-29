@@ -147,3 +147,23 @@ Earlier batches put frozen at $0.39 and $0.41 and seeded at $0.13 and $0.21.
 - **Layered and open did not differ beyond the noise** in question cost or quality with two to four runs each.
 
 What follows: the next lever is what improvement costs, not who changes the harness. Its brief should hand it the evidence already digested — per session, the task, its cost, what its layer added and what it said at the end — so that it reads less, and it should run less often, at an interval that lets what it promotes pay off. An eval with a longer stream is needed to see whether it does.
+
+## What E20 showed
+
+*28–29 October 2026, model `xiaomi/mimo-v2.6-pro`, sandboxed. E20 is E16 at forty questions with improvement after every tenth, its brief now carrying a digest of each working session since the last. One run per structure but layered, which had three. Every answer was right in the end; one layered run counts as failed because two of its improvement sessions hit the fifteen-minute limit and saved nothing.*
+
+| Structure | Questions | Improvement | Whole stream | Cost per question, block by block |
+|---|---|---|---|---|
+| frozen | $1.703 | — | $1.703 | $0.034 → $0.044 → $0.038 → $0.054 |
+| open | $0.573 | $0.532 | $1.104 | $0.016 → $0.011 → $0.017 → $0.013 |
+| layered | $0.477 | $0.315 | $0.792 | $0.025 → $0.011 → $0.006 → $0.005 |
+| layered | $0.632 | $0.350 | $0.983 | $0.024 → $0.016 → $0.011 → $0.013 |
+| layered | $0.918 | $0.486 | $1.404 | $0.047 → $0.017 → $0.013 → $0.014 |
+
+- **Over forty questions, improvement pays for itself.** Every learning run cost less than frozen over the whole stream, improvement included: $0.79 to $1.40 against $1.70. After the first improvement, a question cost $0.008 to $0.015 under learning against $0.045 frozen, and frozen took 1038 turns where layered took 558 to 810. Before it, in the first block, all five runs cost about the same ($0.016 to $0.047), which is the noise to read the rest against.
+- **What the first improvement promotes carries the stream.** In every run, the first improvement session took up a query tool that a working session had built (`orders_query`, `shop_query`, `shop-orders`, `data-profile`) and the sessions after it called it 35 to 98 times. Later improvement sessions mostly refined that tool and the memory around it. One promoted a Python script outside `tools/` with a memory note pointing at it, and sessions found it through the note and ran it 78 times.
+- **The digest did not make improvement cheaper.** An improvement session cost $0.08 to $0.24, as on E16. It still read raw records six to twelve times and made 14 to 38 shell calls, and its reasoning ran to 14K to 58K tokens. The brief grew from 15K to 33K characters as sessions accumulated. What paid off was the longer interval, not a cheaper session.
+- **An improvement session can run out of time.** In one layered run the second and third improvement sessions, each reasoning through about 40K to 60K tokens, hit the fifteen-minute limit before changing anything. The stream went on with what the first had promoted and still beat frozen.
+- **Open spent the most on improvement and grew the biggest harness**: an `aggregate` tool of nearly 800 lines, a profiling tool, an answer tool and a skill. Its questions were as cheap as layered's; with one run, it cannot be ranked against them.
+
+What follows: the measure the harness is built for works out over a long enough stream, with one frozen run as the baseline. What improvement costs per session is the remaining lever: it reasons long and still checks records by hand. Worth trying next: a second frozen run to firm up the baseline, improvement every twenty questions instead of ten, and a digest that answers what it went to the records for.
