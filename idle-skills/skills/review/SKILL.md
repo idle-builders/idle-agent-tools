@@ -21,8 +21,8 @@ and the decisions bound to the root and the project. Ask whether they, reading t
 accept this. Then the plan, the signs and the checks. All signs passing while the goal is missed is a
 failed review; one sign unmet while the goal is plainly reached is a note.
 
-Repository conventions — `AGENTS.md`, `CLAUDE.md`, project memory, and any rule files
-`pipeline.config.yml` names — bind in-scope work and never add to it.
+Repository conventions — `AGENTS.md`, `CLAUDE.md` and project memory — bind in-scope work and never add
+to it.
 
 ## Blocking
 
