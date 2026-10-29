@@ -4,26 +4,26 @@
 
 Freeform "vibe coding" with an agent fails at scale: no separation between deciding *what* to build and building it, the author grades their own homework, scope creeps, review gets skipped when "it's simple," agents that work to a checklist miss what the checklist was for, and nothing compounds.
 
-idle-skills is a workflow over [idle-tasks](../idle-tasks/), the record of work. A dropped task starts with an interview: the planner asks, you decide, and the answers become a goal and a plan of 50–100 lines in your own words. The planner breaks the work into more detailed goals; builders work them; the system runs your project's checks; fresh reviewers judge whether each *goal* is reached, not whether a list was ticked.
+idle-skills is a workflow over [idle-tasks](../idle-tasks/), the record of work. A dropped task starts with an interview: the lead asks, you decide, and the answers become a goal and a plan of 50–100 lines in your own words. The lead breaks the work into more detailed goals; builders work them; the system runs your project's checks; fresh reviewers judge whether each *goal* is reached, not whether a list was ticked.
 
 ```
 drop a task ──▶ interview ──▶ plan the tree ──▶ build ──▶ checks ──▶ review ──▶ PR
-   anyone      you + planner     planner        builder    system    reviewer   builder
+   anyone       you + lead        lead           builder    system    reviewer   builder
                                                    ▲                     │
                                                    └── came back, with why ┘
 ```
 
 - **The goal is the contract.** A task says what is true when it is done, and why. Acceptance criteria are signs of that and checks are a floor; satisfying both while missing the goal is not done. Detail comes from nesting, not from longer lists.
 - **The plan is yours.** It is written with you, not handed to you, and nothing in a run may quietly grow it. Work found along the way becomes a task of its own.
-- **No gates — you contradict.** The planner says what is done and on what evidence; you reopen what is not. The higher in the tree, the more it is yours. This is not a hands-off factory.
-- **One planner, no sub-planners.** One agent holds the whole picture and plans every level, so no two tasks decide the same question.
-- **How much ceremony is a judgement, not a setting.** Ambiguity decides how much interview and whether a design round happens at all; exposure decides how many review lenses. A hundred bugs and one architectural decision get different treatment.
+- **No gates — you contradict.** The lead says what is done and on what evidence; you reopen what is not. The higher in the tree, the more it is yours. This is not a hands-off factory.
+- **One lead, no sub-planners.** One agent holds the whole picture and plans every level, so no two tasks decide the same question.
+- **Your words travel intact.** The lead quotes what you said rather than paraphrasing it, binds standing intent where every task sees it, plays back any rewrite before acting on it, and shows you something small before building something big.
 
 ## What's in here
 
 | Path | Role |
 |---|---|
-| [`skills/`](skills/) | The 15 workflow skills (`SKILL.md`, [Agent Skills](https://agents.md/) standard) |
+| [`skills/`](skills/) | The 9 workflow skills (`SKILL.md`, [Agent Skills](https://agents.md/) standard) |
 | [`hooks/`](hooks/) | Session-start + edit-streak + thrash guards, and spawn-time evidence injection (Claude, Cursor, Gemini, Copilot, Codex, opencode) |
 | [`.codex/automations/`](.codex/automations/), [`sidecars/`](sidecars/) | Weekly `/self-improve` routine definitions for Codex and Antigravity (and `/schedule` prompt in [`skills/self-improve/SKILL.md`](skills/self-improve/SKILL.md)) |
 | [`.claude-plugin/`](.claude-plugin/), [`.codex-plugin/`](.codex-plugin/), [`.cursor-plugin/`](.cursor-plugin/), [`plugin.json`](plugin.json), [`apm.yml`](apm.yml) | Plugin manifests for Claude Code, Codex, Cursor, Antigravity and APM |
@@ -103,7 +103,7 @@ Not in `pipeline.config.yml`. What the maintainer prefers everywhere is project 
 
 The record's own skill, `idle`, comes with [idle-tasks](../idle-tasks/).
 
-Drop a task — `idle task --title "…"`, or just tell the agent — and run it end to end with `/orchestrate <id>`. After several tasks (or on a weekly schedule), run `/self-improve` to mine the retro log and project memory for recurring patterns and propose process fixes. Use `/lore` anytime to capture or surface tribal knowledge.
+Drop a task — `idle task --title "…"`, or just tell the agent — and run it end to end with `/orchestrate <id>`. `/create-pr` opens a PR when you want one; `/retro` records how a finished root went. After several tasks (or on a weekly schedule), `/self-improve` looks for the corrections you keep making and proposes fixes. Use `/lore` anytime to capture or surface tribal knowledge.
 
 ## License
 
