@@ -81,9 +81,9 @@ test('review skill gets state, fresh check results, and the diff', () => {
   assert.match(context, /\+two/);
 });
 
-test('build skills are told their checks predate the session edits', () => {
+test('build is told its checks predate the session edits', () => {
   const { root } = fixture();
-  const context = claudeContext(run(root, 'claude', skillPayload('write-code')));
+  const context = claudeContext(run(root, 'claude', skillPayload('build')));
   assert.match(context, /baseline, ran before this session's edits/);
   assert.doesNotMatch(context, /## diff/);
 });
@@ -181,13 +181,6 @@ test('SubagentStart injects into a spawned reviewer, with checks and the diff, a
   assert.match(context, /agent: idle-reviewer, task: T-/);
   assert.match(context, /CHECKS-GREEN/);
   assert.match(context, new RegExp(`## diff since ${since.slice(0, 7)}|## diff since ${since}`));
-});
-
-test('a builder gets checks but not the diff it is about to change', () => {
-  const { root } = fixture();
-  const context = claudeContext(run(root, 'claude', spawnPayload('idle-builder')));
-  assert.match(context, /predate|baseline/i);
-  assert.doesNotMatch(context, /## diff since/);
 });
 
 test('an unknown agent type injects nothing', () => {

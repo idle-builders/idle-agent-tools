@@ -3,7 +3,3 @@
 [agents.idle-reviewer]
 description = "Idle review persona for critiques and read-only implementation review."
 config_file = "./agents/idle-reviewer.toml"
-
-[agents.idle-builder]
-description = "Idle build persona for tests, implementation, fixes, and shipping."
-config_file = "./agents/idle-builder.toml"

@@ -93,8 +93,8 @@ is used` — working through the real consuming path.
 
 ## Dispatch
 
-Spawn agents to keep work out of your context; never claim a work task yourself. The brief from the
-record is the prompt. If something the maintainer said matters and the brief lacks it, write it into the
+Spawn agents to keep work out of your context; never claim a work task yourself. A builder is a fresh
+agent told to load `/build` for its task. The brief from the record is the prompt. If something the maintainer said matters and the brief lacks it, write it into the
 record first, then spawn.
 
 Tell every agent who it is — `builder/<model>`, `reviewer/<model>` — and to say so on every call to the

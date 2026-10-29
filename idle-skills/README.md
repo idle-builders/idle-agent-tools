@@ -25,7 +25,7 @@ drop a task ──▶ interview ──▶ plan the tree ──▶ build ──�
 |---|---|
 | [`skills/`](skills/) | The 15 workflow skills (`SKILL.md`, [Agent Skills](https://agents.md/) standard) |
 | [`personas/`](personas/) | Persona source of truth; [`../scripts/generate-agents.mjs`](../scripts/generate-agents.mjs) renders every host format below |
-| [`agents/`](agents/) | Claude-format `idle-reviewer` / `idle-builder` (generated) |
+| [`agents/`](agents/) | Claude-format `idle-reviewer` (generated) |
 | [`agents-cursor/`](agents-cursor/), [`agents-antigravity/`](agents-antigravity/), [`.opencode/agents/`](.opencode/agents/), [`.codex/agents/`](.codex/agents/) | The same personas for Cursor, Antigravity, opencode and Codex (generated) |
 | [`hooks/`](hooks/) | Session-start + edit-streak + thrash guards, and spawn-time evidence injection (Claude, Cursor, Gemini, Copilot, Codex, opencode) |
 | [`.codex/automations/`](.codex/automations/), [`sidecars/`](sidecars/) | Weekly `/self-improve` routine definitions for Codex and Antigravity (and `/schedule` prompt in [`skills/self-improve/SKILL.md`](skills/self-improve/SKILL.md)) |
@@ -84,7 +84,6 @@ event at all.
 
 | spawned as | receives |
 |---|---|
-| `idle-builder` | state + check results, marked as a pre-edit baseline |
 | `idle-reviewer` | state + check results + the diff since the work started |
 
 **This runs `checks.preSpawn` (or `verify`) as a shell command.** A hook executes directly, so it is
@@ -108,32 +107,32 @@ The skills are deliberately generic — repo-specific knowledge (test layout, wh
 
 ```yaml
 rules:
-  code: .pipeline/rules/typescript.md       # → write-code, review
-  testing: .pipeline/rules/testing.md       # → write-tests, review, orchestrate
-  design-system: .pipeline/rules/design.md  # → design, write-code, review
-  security: .pipeline/rules/security.md     # → write-code, review
+  code: .pipeline/rules/typescript.md       # → build, review
+  testing: .pipeline/rules/testing.md       # → build, review, orchestrate
+  design-system: .pipeline/rules/design.md  # → design, build, review
+  security: .pipeline/rules/security.md     # → build, review
 ```
 
 Rule files live under `.pipeline/rules/` so every host reads the same ones — nothing about them is Claude-, Cursor-, or Codex-specific. They are maintainer-authored and committed: `/setup` writes them with your approval, and a pipeline run may not edit them. Nothing a run writes lands under `.pipeline/` — state lives in the record of work.
 
 | Slot | Read by | Use it for |
 |---|---|---|
-| `code` | write-code, review | language / type / style conventions |
-| `testing` | write-tests, review, orchestrate | what counts as a test, layout, lanes/fixtures |
-| `architecture` | write-code, review | architecture invariants & conventions |
+| `code` | build, review | language / type / style conventions |
+| `testing` | build, review, orchestrate | what counts as a test, layout, lanes/fixtures |
+| `architecture` | build, review | architecture invariants & conventions |
 | `taste` | orchestrate | standing conventions for how this repo likes things done |
-| `design-system` | design, write-code, review | component budget, tokens, reuse-before-build, promotion |
-| `frontend` | design, write-code, review | client / UI conventions |
+| `design-system` | design, build, review | component budget, tokens, reuse-before-build, promotion |
+| `frontend` | design, build, review | client / UI conventions |
 | `visual` | design, review | visual fidelity / regression policy |
 | `aesthetics` | design | aesthetic quality bar |
-| `security` | write-code, review | security policy / threat model |
-| `docs` | write-docs, review | documentation voice & conventions |
+| `security` | build, review | security policy / threat model |
+| `docs` | build, review | documentation voice & conventions |
 
-This is how one repo makes `/review` enforce its own reuse-before-build rule, or `/write-tests` follow its real-vs-mock lane policy, while another repo running the same plugin does something different — same skills, different rules. See [`pipeline.config.example.yml`](pipeline.config.example.yml) for the full slot list.
+This is how one repo makes `/review` enforce its own reuse-before-build rule, while another repo running the same plugin does something different — same skills, different rules. See [`pipeline.config.example.yml`](pipeline.config.example.yml) for the full slot list.
 
 ## The skills
 
-`orchestrate` · `design` · `write-tests` · `write-code` · `write-docs` · `review` · `retro` · `ship` · `self-improve` · `lore` · `setup`
+`orchestrate` · `design` · `build` · `review` · `retro` · `ship` · `self-improve` · `lore` · `setup`
 
 The record's own skill, `idle`, comes with [idle-tasks](../idle-tasks/).
 

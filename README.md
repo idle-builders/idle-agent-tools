@@ -164,7 +164,7 @@ scripts/install-opencode.sh --global   # ~/.config/opencode
 | Piece | Destination |
 |---|---|
 | Skills | `.opencode/skills/` |
-| Agents | `.opencode/agents/` (`@idle-builder`, `@idle-reviewer`) |
+| Agents | `.opencode/agents/` (`@idle-reviewer`) |
 | Post-edit guards | `.opencode/plugins/pipeline.js` |
 | Session-start | managed block in `AGENTS.md` |
 | Record of work | `mcp.idle` in `opencode.json` (started from npm) |
