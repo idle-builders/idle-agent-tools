@@ -8,7 +8,7 @@
 verify: "npm run verify"
 
 # The customer every planning + critique phase is building for (over- and
-# under-building both count as defects). /refine re-confirms it
+# under-building both count as defects). /orchestrate re-confirms it
 # and stops for a maintainer decision if unclear. Overridable per-track and
 # per-work-package.
 #   prototype  — builders/internal demo: core flow works manually; key features may be absent
@@ -81,7 +81,7 @@ rules:
   aesthetics: null     # aesthetic quality bar — design
   security: null       # security policy / threat model — architecture, architecture-critique, write-code, review
   docs: null           # documentation voice & conventions — write-docs, review
-  taste: null          # standing conventions for how this repo likes things done — refine, program-design, orchestrate
+  taste: null          # standing conventions for how this repo likes things done — orchestrate
 # The `taste` slot is short, standing conventions only — the answers you have given
 # often enough to be worth not repeating. It is NOT a lookup table for per-item
 # questions: when an interview needs to know how you want something and this item's

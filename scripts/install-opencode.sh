@@ -105,9 +105,9 @@ $BEGIN
 idle-skills is active. Work in structured phases, not freeform.
 
 - Large or non-trivial changes: drop a task with the idle skill, then run it through the
-  orchestrate skill, which refines and plans it with the user. Don't freelance big changes.
-- Conceptual questions (what a thing IS or should be): use the refine skill, and
-  resolve them interactively with the user — don't settle load-bearing meaning alone.
+  orchestrate skill, which works out what is wanted and plans it with the user. Don't freelance big changes.
+- Conceptual questions (what a thing IS or should be): resolve them interactively
+  with the user — don't settle load-bearing meaning alone.
 - Structured work uses three dedicated agents; you are the orchestrator, delegate
   work to your team: @idle-planner (concept/design/architecture) plans & structures
   details; @idle-builder implements & ships and thus does the heavy lifting; @idle-reviewer

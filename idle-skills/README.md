@@ -122,7 +122,7 @@ Rule files live under `.pipeline/rules/` so every host reads the same ones — n
 | `code` | write-code, architecture, architecture-critique, review | language / type / style conventions |
 | `testing` | write-tests, architecture, architecture-critique, review, orchestrate | what counts as a test, layout, lanes/fixtures |
 | `architecture` | architecture, architecture-critique, write-code, review | architecture invariants & conventions |
-| `taste` | refine, program-design, orchestrate | standing conventions for how this repo likes things done |
+| `taste` | orchestrate | standing conventions for how this repo likes things done |
 | `design-system` | design, write-code, review | component budget, tokens, reuse-before-build, promotion |
 | `frontend` | design, write-code, review | client / UI conventions |
 | `visual` | design, review | visual fidelity / regression policy |
@@ -134,7 +134,7 @@ This is how one repo makes `/review` enforce its own reuse-before-build rule, or
 
 ## The skills
 
-`orchestrate` · `refine` · `program-design` · `design` · `architecture` · `architecture-critique` · `write-tests` · `write-code` · `write-docs` · `review` · `retro` · `ship` · `self-improve` · `lore` · `setup`
+`orchestrate` · `design` · `architecture` · `architecture-critique` · `write-tests` · `write-code` · `write-docs` · `review` · `retro` · `ship` · `self-improve` · `lore` · `setup`
 
 The record's own skill, `idle`, comes with [idle-tasks](../idle-tasks/).
 
