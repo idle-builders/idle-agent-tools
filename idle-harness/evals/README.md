@@ -35,6 +35,15 @@ node idle-harness/evals/bench.ts
 | `seq-lab` | molecular biology on raw sequences | 40 | LAB-Bench SeqQA, ten families answerable from the sequence |
 | `or-models` | operations research word problems | 30 | MAMO ComplexLP and IndustryOR, as cleaned by LLM4OR |
 
+### What the pilots showed
+
+Ten steps of `seq-lab` and of `or-models` under `frozen` both pass the gate. Every step was approved, nine of ten the first time, all rated 5. A step cost $0.004–0.078 on `seq-lab` ($0.203 in all) and $0.012–0.093 on `or-models` ($0.361). Both are cheap enough to run in full and spread widely enough for learning to show.
+
+- Frozen sessions build what a learning harness would keep, and it goes at the end. On `seq-lab` that was an ORF finder, a GC calculator, a digest and a PCR check. On `or-models` it was an ILP solver rebuilt in seven sessions out of ten, plus the same integer convention noted three times.
+- One reject in each stream, and each time the reopened session got it right. The reopenings work as feedback.
+- Sessions spend a few calls on the `--task` id, most after `/approve`: they look for an `idle` command and list `~/.idle`, where the sandbox stops them. It cost cents. No session touched another's folder, so `frozen` held.
+- One `seq-lab` session timed out after seven turns on a stalled model call, the same stall as the smoke run.
+
 ## Catalogue
 
 | Eval | Intents | Scenario | Passes when |
