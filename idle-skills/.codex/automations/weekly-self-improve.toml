@@ -5,5 +5,5 @@ schedule = "0 9 * * 1"
 
 [prompt]
 content = """
-Run the /self-improve weekly routine across all projects with new completed work, retros, outcomes, or decisions since the last /self-improve pass (or for this repository when running standalone). Record 1-occurrence candidates in project memory, and for any confirmed pattern (2+ independent occurrences for general taste/domain conventions, 3+ for process/skill changes), drop a proposed root task or report the evidence-backed proposal for human approval. Never edit rules or skills unattended.
+Run the /self-improve weekly routine: retro every finished or week-old root that has none, then look across projects for corrections the maintainer keeps making (2+ independent occurrences for standing taste, 3+ for process or skill changes) and drop a proposed root task with the evidence for each. Never edit memory, rules or skills unattended.
 """
