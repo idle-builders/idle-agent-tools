@@ -15,7 +15,7 @@ Agents do not talk to each other; they read and write one record. It holds two t
 
 ### [`idle-skills/`](idle-skills/) — the workflow
 
-A dropped task starts with an interview: the planner asks, you decide, and the answers become a goal and a plan in your own words. The planner breaks the work into goals, builders work them, the system runs the checks, fresh reviewers judge whether each *goal* is reached — and you contradict what is not done. Fifteen skills, three personas, hooks that put fresh evidence in front of every agent when it starts, and a `/self-improve` skill (manual or weekly across projects). Works on `idle-tasks`, or standalone.
+A dropped task starts with an interview: the planner asks, you decide, and the answers become a goal and a plan in your own words. The planner breaks the work into goals, builders work them, the system runs the checks, fresh reviewers judge whether each *goal* is reached — and you contradict what is not done. Seven skills, three personas, hooks that put fresh evidence in front of every agent when it starts, and a `/self-improve` skill (manual or weekly across projects). Works on `idle-tasks`, or standalone.
 
 ```
 drop a task ──▶ interview ──▶ plan the tree ──▶ build ──▶ checks ──▶ review ──▶ PR
@@ -59,7 +59,7 @@ The marketplace was renamed, so an existing install does not move by itself. Rem
 /plugin marketplace add ambrovia/idle-agent-tools
 ```
 
-then install both plugins as below. Skills keep their names; their prefix becomes `idle-skills:`. Codex asks once to re-approve the hooks, because their paths changed. Items that exist only as `.pipeline/work/<id>/plan.md` are adopted by `/orchestrate` as tasks.
+then install both plugins as below. Skills keep their names; their prefix becomes `idle-skills:`. Codex asks once to re-approve the hooks, because their paths changed.
 
 ### APM
 
@@ -95,7 +95,7 @@ In each repository, commit `.claude/settings.json`:
 
 Claude reads it from the folder a session starts in, so start at the repository root. `claude plugin marketplace update idle-agent-tools` picks up a new release.
 
-`idle-tasks` is the record of work on its own — the `idle` CLI, its MCP server and the `/idle` skill — and works with any workflow. `idle-skills` is the workflow on top and works with `idle-tasks` or standalone. The orchestrator is `/orchestrate`; `/setup`, `/lore` and `/self-improve` are the other commands you invoke directly. The phase skills are dispatched by the orchestrator, not run by hand.
+`idle-tasks` is the record of work on its own — the `idle` CLI, its MCP server and the `/idle` skill — and works with any workflow. `idle-skills` is the workflow on top and works with `idle-tasks` or standalone. The lead is `/orchestrate`; `/create-pr`, `/retro`, `/self-improve`, `/lore` and `/setup` are the other commands you invoke directly. Planning, building and reviewing are done by the three personas.
 
 ### Cursor — plugin
 
