@@ -28,7 +28,7 @@ drop a task ──▶ interview ──▶ plan the tree ──▶ build ──�
 | [`.codex/automations/`](.codex/automations/), [`sidecars/`](sidecars/) | Weekly `/self-improve` routine definitions for Codex and Antigravity (and `/schedule` prompt in [`skills/self-improve/SKILL.md`](skills/self-improve/SKILL.md)) |
 | [`.claude-plugin/`](.claude-plugin/), [`.codex-plugin/`](.codex-plugin/), [`.cursor-plugin/`](.cursor-plugin/), [`plugin.json`](plugin.json), [`apm.yml`](apm.yml) | Plugin manifests for Claude Code, Codex, Cursor, Antigravity and APM |
 | [`.opencode/plugins/pipeline.js`](.opencode/plugins/pipeline.js) | opencode post-edit plugin |
-| [`pipeline.config.example.yml`](pipeline.config.example.yml) | Everything project-specific, in one file |
+| [`pipeline.config.example.yml`](pipeline.config.example.yml) | The repository's settings: verify command, tier, design system, VCS |
 
 ## Install
 
@@ -36,7 +36,7 @@ Install both plugins from the marketplace at the repository root — see the [to
 
 ## Configure
 
-Everything project-specific lives in one file. Copy [`pipeline.config.example.yml`](pipeline.config.example.yml) to `pipeline.config.yml`; skills resolve `{{key}}` from it:
+Copy [`pipeline.config.example.yml`](pipeline.config.example.yml) to `pipeline.config.yml`; skills resolve `{{key}}` from it:
 
 The record of work needs nothing in the repository. Its settings are per machine, in `~/.idle/config.json` — `/setup` offers to write them:
 
@@ -52,9 +52,6 @@ engineering:
   tier: mvp               # prototype | mvp | production | critical — the customer and rigor the code targets
 designSystem: null        # null → the design round never runs
 vcs: github
-# worktree:               # optional repository-owned lifecycle commands
-#   bootstrap: "go mod download"
-#   cleanup: null
 ```
 
 The **engineering tier** is load-bearing and is chosen by customer, not by aspiration:
@@ -96,34 +93,9 @@ Check results are stamped with the commit (and dirty flag) they ran on, so an ag
 pre-edit baseline from a completion gate. Every failure degrades to silence — a spawn never breaks
 on this hook.
 
-### Steer skills with project rules
+### Taste and conventions
 
-The skills are deliberately generic — repo-specific knowledge (test layout, where code lives, type conventions, component budget, reuse-before-build, security policy) lives in **rules**, not in forks of the skills. `pipeline.config.yml` exposes a fixed set of optional rule **slots**; point a slot at a markdown file and the skills that consult that slot read it as **binding** guidance (a project rule overrides the skill's generic advice on conflict). Leave a slot null and skills skip it.
-
-```yaml
-rules:
-  code: .pipeline/rules/typescript.md       # → build, review
-  testing: .pipeline/rules/testing.md       # → build, review, orchestrate
-  design-system: .pipeline/rules/design.md  # → design, build, review
-  security: .pipeline/rules/security.md     # → build, review
-```
-
-Rule files live under `.pipeline/rules/` so every host reads the same ones — nothing about them is Claude-, Cursor-, or Codex-specific. They are maintainer-authored and committed: `/setup` writes them with your approval, and a pipeline run may not edit them. Nothing a run writes lands under `.pipeline/` — state lives in the record of work.
-
-| Slot | Read by | Use it for |
-|---|---|---|
-| `code` | build, review | language / type / style conventions |
-| `testing` | build, review, orchestrate | what counts as a test, layout, lanes/fixtures |
-| `architecture` | build, review | architecture invariants & conventions |
-| `taste` | orchestrate | standing conventions for how this repo likes things done |
-| `design-system` | design, build, review | component budget, tokens, reuse-before-build, promotion |
-| `frontend` | design, build, review | client / UI conventions |
-| `visual` | design, review | visual fidelity / regression policy |
-| `aesthetics` | design | aesthetic quality bar |
-| `security` | build, review | security policy / threat model |
-| `docs` | build, review | documentation voice & conventions |
-
-This is how one repo makes `/review` enforce its own reuse-before-build rule, while another repo running the same plugin does something different — same skills, different rules. See [`pipeline.config.example.yml`](pipeline.config.example.yml) for the full slot list.
+Not in `pipeline.config.yml`. What the maintainer prefers everywhere is project memory in the record of work (`idle memory --kind taste`), which every brief carries. Repository conventions go in `AGENTS.md`, imported from `CLAUDE.md` with `@AGENTS.md`, so every harness reads the same file. `/setup` asks for both in the maintainer's words, and `/self-improve` proposes additions when the same correction keeps recurring.
 
 ## The skills
 
