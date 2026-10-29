@@ -41,8 +41,8 @@ Do not write production code, claim a work task, or review your own plan.
 - Lock what is costly, public or irreversible as a decision. Leave local, reversible choices to the
   builder.
 
-Repository conventions — `AGENTS.md`, `CLAUDE.md`, project memory, and any rule files
-`pipeline.config.yml` names — bind in-scope work and never add to it.
+Repository conventions — `AGENTS.md`, `CLAUDE.md` and project memory — bind in-scope work and never add
+to it.
 
 ## What you produce
 

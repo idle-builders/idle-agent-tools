@@ -1,16 +1,16 @@
-# pipeline.config.yml — the ONLY repo-specific file the skills need.
+# pipeline.config.yml — the repository's settings for idle-skills.
 # Copy this to pipeline.config.yml and edit. Skills read these values instead of
 # hardcoding anything (they reference them as {{verify}}, {{vcs}}, ...).
+# Taste and conventions do not live here: standing preferences are project memory
+# in the record of work, repository conventions are AGENTS.md (see /setup).
 
 # The single command that must pass before work goes into a PR.
 # Tests for a library, `terraform plan` + policy for infra, E2E for an app —
 # what "green" means is up to you, as long as one command produces it.
 verify: "npm run verify"
 
-# The customer every planning + critique phase is building for (over- and
-# under-building both count as defects). /orchestrate re-confirms it
-# and stops for a maintainer decision if unclear. Overridable per-track and
-# per-work-package.
+# Who the product is for. It sets how rigorous the work is, never how big;
+# over- and under-building both count as defects.
 #   prototype  — builders/internal demo: core flow works manually; key features may be absent
 #   mvp        — early tolerant users: core works mostly; auxiliary features and edge cases may be absent
 #   production — ordinary users/customers: works normally and reliably; standard tests, errors, and security
@@ -18,14 +18,8 @@ verify: "npm run verify"
 engineering:
   tier: mvp
 
-# Where the code lives. Used to scope reviews.
-paths:
-  source: ["src/**"]
-  tests: ["**/*.test.*"]
-  docs: ["docs/**"]
-
-# Path + conventions of your design system. null → the design
-# phases are skipped (backend / infra / library repos).
+# Path + tokens of your design system, for /design. null → no design round
+# (backend / infra / library repos).
 designSystem: null
 # designSystem:
 #   path: "src/design-system"
@@ -34,68 +28,15 @@ designSystem: null
 # Version control + where /create-pr opens PRs and waits for CI. github | gitlab | none
 vcs: github
 
-# Optional worktree lifecycle commands and contamination checks. Configure only
-# commands the repository owns; the pipeline never guesses cleanup behavior.
-# worktree:
-#   bootstrap: "npm ci"
-#   cleanup: null
-#   forbiddenArtifacts: ["core", "**/*.tsbuildinfo"]
-
 # Mechanical checks run once before a reviewer or builder-retry spawn; the
 # results are injected into the spawn brief so agents judge them instead of
 # re-running them. Defaults to `verify` when absent — point it at a faster
 # subset (lint + typecheck) when the full gate is too slow per spawn.
 #
-# TRUST: where the skill-load hook is wired, this command is run by the hook
-# itself whenever a builder or reviewer starts — a hook runs
-# directly, so it is not covered by the host's tool-permission prompts. Point
+# TRUST: where the spawn hook is wired, this command is run by the hook
+# itself whenever a builder or reviewer starts — a hook runs directly, so it is not covered by the host's tool-permission prompts. Point
 # it only at commands this repository owns, and treat an edit to this line the
 # way you would treat an edit to a CI workflow. Set PIPELINE_SKILL_INJECT=off
 # to disable injection entirely.
 # checks:
 #   preSpawn: "npm run lint && npm run typecheck"
-
-# Long-running checks wired into host hook events where supported, so agents
-# receive results instead of polling for them. Keys name the host events the
-# repository's tooling understands; configure only commands the repository
-# owns. Absent host support, the skills' run-once-and-wait rule is the
-# fallback.
-# hooks:
-#   postCommit: "npm test -- --affected"
-
-# Project rules — OPTIONAL files that let THIS repo steer specific skills without
-# forking them. Each key below is a fixed rule "slot" the skills know to look for;
-# point it at a markdown file of binding project guidance and the relevant skill
-# reads it before acting (a project rule WINS over the skill's generic advice on
-# conflict). Omit / leave null any slot you don't need — skills skip absent slots
-# silently. This is how repo-specific knowledge (test layout, where code lives,
-# component budget, reuse-before-build, type conventions, security policy) reaches
-# the otherwise-generic skills. Which skill reads which slot is noted after each.
-rules:
-  code: null           # language / type / style conventions — idle-reviewer
-  testing: null        # what counts as a test, layout, lanes/fixtures, combined/integration seam — idle-reviewer, orchestrate
-  architecture: null   # architecture invariants & conventions — idle-reviewer
-  design-system: null  # component budget, tokens, reuse-before-build, promotion — design, idle-reviewer
-  frontend: null       # client / UI conventions — design, idle-reviewer
-  visual: null         # visual fidelity / regression policy — design, idle-reviewer
-  aesthetics: null     # aesthetic quality bar — design
-  security: null       # security policy / threat model — idle-reviewer
-  docs: null           # documentation voice & conventions — idle-reviewer
-  taste: null          # standing conventions for how this repo likes things done — orchestrate
-# The `taste` slot is short, standing conventions only — the answers you have given
-# often enough to be worth not repeating. It is NOT a lookup table for per-item
-# questions: when an interview needs to know how you want something and this item's
-# plan does not say, the agent asks you rather than stretching a convention written
-# for a different question. /retro records where an agent's choice diverged from what
-# you wanted, /self-improve proposes an amendment, and you approve it.
-# Rule files live under .pipeline/rules/ — host-neutral, so every tool reads the same
-# ones. They are maintainer-authored and committed: /setup writes them with your
-# approval, and no pipeline run may edit them. Run state lives in the record of work
-# (/idle), not under .pipeline/.
-# Example (a TS app):
-#   code: .pipeline/rules/typescript.md
-#   testing: .pipeline/rules/testing.md
-#   design-system: .pipeline/rules/design-system.md
-#   frontend: .pipeline/rules/frontend.md
-#   visual: .pipeline/rules/visual-regression.md
-#   aesthetics: .pipeline/rules/aesthetic-quality.md

@@ -19,10 +19,9 @@ The goal, read with the goals above it and the maintainer's words in the intervi
 Signs and checks help you tell; meeting them while missing the goal is not done. On a task that came
 back, fix what it came back for and nothing else.
 
-Decisions in force and repository conventions — `AGENTS.md`, `CLAUDE.md`, project memory, and any rule
-files `pipeline.config.yml` names — bind the solution and never add to it. Local, reversible choices are
-yours. When the repository contradicts the plan, or the goal needs new scope, block with the evidence;
-do not redesign.
+Decisions in force and repository conventions — `AGENTS.md`, `CLAUDE.md` and project memory — bind the
+solution and never add to it. Local, reversible choices are yours. When the repository contradicts the
+plan, or the goal needs new scope, block with the evidence; do not redesign.
 
 ## What the maintainer does not want
 

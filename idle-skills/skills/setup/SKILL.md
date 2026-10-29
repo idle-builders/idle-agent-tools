@@ -1,7 +1,7 @@
 ---
 name: setup
-description: "Configure evidence-backed, maintainer-approved pipeline rule slots and design-system paths for this repository. Use during installation or when repository conventions change; do not promote generic best practices into binding policy automatically."
-argument-hint: "[rule slot to configure, e.g. 'design-system', 'testing', 'security', 'docs', or 'all']"
+description: "Wire a repository into the workflow: the verify command, checks and independent review in the record of work, where the maintainer's taste and conventions live, and the weekly self-improve run. Use on installation or when the project's setup changes."
+argument-hint: "[optional: 'checks', 'taste', 'schedule', or 'all']"
 persona: any
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
@@ -9,56 +9,26 @@ user-invocable: true
 
 # Setup
 
-Configuration lives in `pipeline.config.yml` at the repository root — `verify`, `vcs`, `paths`,
-`designSystem`, `engineering.tier`, optional `worktree` lifecycle settings, optional `checks` and
-`hooks` wiring, and the `rules` slots (`taste`, `code`,
-`testing`, `architecture`, `design-system`, `frontend`, `visual`, `aesthetics`, `security`, `docs`), each
-pointing at a markdown file of binding project guidance. Start from `pipeline.config.example.yml`.
+Propose each step, show what you would write, and write only what the maintainer approves.
 
-The record of work needs no setup in the repository: it lives in the user's home (`/idle`). When
-`idle-tasks` is present, offer to set, in `~/.idle/config.json`: this project's `checks` to `{{verify}}` —
-keyed by the label `idle doctor` prints, so the system verifies every submitted task itself;
-`"review": true`, so a verified task waits for a reviewer who did not do the work; and a shared database
-only when the maintainer brings one. Also offer to schedule the weekly `/self-improve` routine in the
-current harness (Claude Code `/schedule`, Codex `.codex/automations/`, Antigravity `/automation` sidecar)
-using the `## Weekly routine` prompt in `/self-improve` so recurring taste and friction patterns are
-distilled weekly across all projects by default.
+1. **`pipeline.config.yml`** at the repository root, from `pipeline.config.example.yml`: `verify`, the one
+   command that must pass; `vcs`; `engineering.tier`, chosen by who uses the product; `designSystem`, or
+   `null` without a UI. Take commands from what the repository already runs, never invent them.
+2. **The record of work** (`~/.idle/config.json`, when idle-tasks is present): this project's `checks`,
+   keyed by the label `idle doctor` prints, so the system verifies every submitted task itself; and
+   `"review": true`, so a verified task waits for a reviewer who did not do the work. A shared database
+   only when the maintainer brings one.
+3. **Their taste and conventions**, in their words, where every agent will see them:
+   - a standing preference — how they like things done, everywhere — is project memory
+     (`memory --kind taste`, no `--task`); every brief carries it;
+   - a convention of the repository goes in `AGENTS.md`, and `CLAUDE.md` imports it with `@AGENTS.md`
+     so every harness reads the same file.
 
-Write approved rule files to `.pipeline/rules/<slot>.md` and point the slot at that path. Rule files are maintainer-authored and committed; a
-pipeline run may not edit them.
-
-`taste` holds the handful of hard facts about how this repository likes things done — ten or twenty
-lines, in the maintainer's voice, not derived best practice. Nearly all taste is decided per item
-during refinement; only what holds everywhere belongs here. Seed it from what the maintainer tells
-you, never from what the codebase implies. Empty is a good starting state.
-
-When `pipeline.config.yml` does not exist yet, propose the slots most repositories need rather than only the ones asked for: `code`,
-`testing`, and `security` at minimum, plus `design-system` and `frontend` wherever a UI exists. Reason
-each one from current best practice for this stack and what the repository already does. Leaving a slot
-`null` is a legitimate answer, but it should be a recorded maintainer decision — an empty slot quietly
-reduces every later phase to generic judgment on the subject it covers.
-
-For each requested rule slot, inspect repository configuration, code, tests, docs, CI, and established
-patterns. Distinguish:
-
-- an existing invariant supported by evidence;
-- a future policy the maintainer may choose;
-- conditional guidance or a generic suggestion.
-
-Where retros, compound candidates, or lore already exist, inspect those too. For each
-recurring lesson, identify whether the generic pipeline already handles it, it should become a repository
-rule, or it is no longer applicable. Never promote a historical observation automatically.
-
-Configure worktree bootstrap, cleanup, and forbidden-artifact checks only from commands and hazards the
-repository already owns or the maintainer approves. Leave absent lifecycle settings unset; never guess.
-
-Present evidence, proposed rule text, applicability, blocking force, and trade-offs. Ask the maintainer
-to approve or revise it. Write only approved rules and wire only real paths; `null` deliberately means
-no repository-specific rule for that slot.
-
-Rules govern how in-scope changes are made. They do not expand item outcomes or retroactively
-require unrelated infrastructure. Include concrete triggers and skip conditions so consumers know when
-a rule applies. Validate configured paths and references after writing.
+   Ask; do not derive taste from the code or from best practice. Empty is a good start. Where
+   `.pipeline/rules/` files exist, offer to move what is still true into one of the two and delete the
+   rest.
+4. **The weekly `/self-improve` run** in this harness — Claude Code `/schedule`, Codex
+   `.codex/automations/`, Antigravity the `sidecars/` definition — using its `## Weekly routine`.
 
 ## Target
 
