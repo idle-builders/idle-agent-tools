@@ -105,14 +105,6 @@ someone who did not do the work.
 A worker needs nothing but its brief. Start a session in any harness with the brief as the prompt and
 `IDLE_BY` set to who it is: `IDLE_BY=<harness>/<model> <harness> "$(idle show <id> --brief)"`.
 
-## Keeping work alive
-
-For a scheduled run in any harness. Each step is one read and at most one move:
-
-1. `show --state` on each open root task of the project.
-2. A task still `submitted` means its checks never finished: submit it again, where the work is.
-3. If anything else needs attention, start one planning session on that root.
-
 ## Target
 
 $ARGUMENTS
