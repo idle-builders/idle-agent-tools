@@ -10,7 +10,6 @@
   "license": "Apache-2.0",
   "skills": "./skills",
   "agents": [
-    "./agents/idle-planner.md",
     "./agents/idle-reviewer.md",
     "./agents/idle-builder.md"
   ]
