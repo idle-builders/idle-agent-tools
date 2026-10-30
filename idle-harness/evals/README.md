@@ -44,6 +44,23 @@ Ten steps of `seq-lab` and of `or-models` under `frozen` both pass the gate. Eve
 - Sessions spend a few calls on the `--task` id, most after `/approve`: they look for an `idle` command and list `~/.idle`, where the sandbox stops them. It cost cents. No session touched another's folder, so `frozen` held.
 - One `seq-lab` session timed out after seven turns on a stalled model call, the same stall as the smoke run.
 
+### What the first full runs showed
+
+One run of each arm, so the numbers are indicative only.
+
+| Stream | Arm | Whole stream | Improvement | Approved first time | Per approved step, by block |
+|---|---|---|---|---|---|
+| `or-models` | frozen | $0.941 | — | 28 of 30, p30 never | $0.032 → $0.032 → $0.016 |
+| `or-models` | layered | $0.789 | $0.185 | 27 of 30 | $0.029 → $0.007 → $0.024 |
+| `seq-lab` | frozen | $1.074 | — | 37 of 40 | $0.039 → $0.034 → $0.019 → $0.015 |
+| `seq-lab` | layered | $1.484 | $0.473 | 40 of 40 | $0.035 → $0.028 → $0.025 → $0.013 |
+
+- On `or-models`, learning paid for itself: 16% cheaper with improvement included, and below frozen from step 12 on. The first improvement promoted a diet-problem solver, used 14 times later, and the next block cost a fifth of frozen's per step. The last block is IndustryOR, where problems take other shapes; there the solver didn't fit and the lead was gone. That shift is an accident of how the stream was built, but a useful one.
+- On `seq-lab`, learning cost $0.41 more. Steps came to about the same ($1.01 against $1.07), and improvement took $0.47. The first two improvements kept nothing the steps used. The third, after step 30, promoted the ORF and digest tools, but with only ten steps left. In return, learning had no rejects, where frozen had three reopenings costing about $0.30.
+- Frozen gets cheaper block by block on its own: from $0.039 to $0.015 per step on `seq-lab`. That comes from the order of the questions, not from learning, so a block is compared against the same block under `frozen`, never against block one.
+- Every approval cost both arms calls, and learning lost an improvement session to it. The base's `/approve` instruction asks the session to record the outcome on the `idle-tasks` task named by `--task`. The bench has no such task, and the sandbox keeps the `idle` store out of reach. So sessions probe for it, and the improvement sessions spent work on it. They wrote memories saying there was no task, and on `seq-lab` they patched `turn.ts` to run `idle show` and summarise why it was refused.
+- Nine sessions out of 145 timed out at 30 minutes, three of them improvement sessions. Some were stalled model calls; others were long improvement sessions of 30–54 turns.
+
 ## Catalogue
 
 | Eval | Intents | Scenario | Passes when |
