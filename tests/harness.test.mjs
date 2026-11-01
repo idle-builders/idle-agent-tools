@@ -10,6 +10,7 @@ import { join, resolve } from 'node:path';
 import test from 'node:test';
 
 const root = resolve(new URL('..', import.meta.url).pathname, 'idle-harness');
+const tasks = resolve(new URL('..', import.meta.url).pathname, 'idle-tasks/bin');
 const { run } = await import(`${root}/src/loop.ts`);
 const { model } = await import(`${root}/src/model.ts`);
 const { claim, follower, holder, read, send, take } = await import(`${root}/src/record.ts`);
@@ -368,9 +369,10 @@ test('the record keeps the commit each turn starts from, when the work is a git 
 
 test("the human's review: approved and rated, or rejected and reopened; analytics counts the cost to approval", async () => {
   const { home, cwd } = sandbox();
+  const T1 = JSON.parse(spawnSync(join(tasks, 'idle'), ['task', '--title', 'build it', '--confirm'], { cwd, env: { ...process.env, IDLE_HOME: home } }).stdout).id;
   const fake = await provider(() => says('ok'));
   try {
-    const first = cli(home, cwd, fake.url, ['chat', 'h', 'build it', '--session', 's', '--task', 'T1', '--once']);
+    const first = cli(home, cwd, fake.url, ['chat', 'h', 'build it', '--session', 's', '--task', T1, '--once']);
     assert.equal(await first.exit, 0, first.err);
     const reject = cli(home, cwd, fake.url, ['chat', 'h', '/reject the totals are off', '--session', 's', '--once']);
     assert.equal(await reject.exit, 0, reject.err);
@@ -379,17 +381,22 @@ test("the human's review: approved and rated, or rejected and reopened; analytic
     const unreadable = cli(home, cwd, fake.url, ['chat', 'h', '/rate great', '--session', 's', '--once']);
     assert.equal(await unreadable.exit, 2);
     assert.match(unreadable.err, /rate with a number from 1 to 5/);
+    const elsewhere = cli(home, cwd, fake.url, ['chat', 'h', '/approve 5', '--session', 'other', '--task', 'T-none', '--once']);
+    assert.equal(await elsewhere.exit, 0, elsewhere.err);
   } finally {
     fake.close();
   }
 
   const items = read(sessionDir('h', 's')).flatMap((entry) => entry.arrived).filter((item) => item.review);
   assert.deepEqual(items.map((item) => [item.from, item.text.split('\n')[0]]), [['review', 'The human rejected the work: the totals are off'], ['review', 'The human approved the work and rated it 4 of 5: much better']]);
-  assert.match(items[1].text, /Put this on task T1 as its outcome \(idle task --id T1 --outcome "…"\), then write a retrospective: .+ \(idle memory --kind retro --task T1\)\. If idle-tasks has no task T1, do neither/);
-  assert.deepEqual(items[1].review, { verdict: 'approved', rating: 4, note: 'much better', task: 'T1' }, 'for the task the session was started for');
-  const [task] = analytics.attribute(analytics.sessions('h')).tasks;
-  assert.deepEqual([task.task, task.rejections, task.rating, +task.toApproval.toFixed(3), +task.cost.toFixed(3)], ['T1', 1, 4, 0.004, 0.006], 'what it cost up to the approval, not the turn that read it');
-  assert.match(analytics.report('h'), /T1: approved for \$0\.0040, rated 4 after 1 rejections/);
+  assert.ok(items[1].text.includes(`Put this on task ${T1} as its outcome (idle task --id ${T1} --outcome "…"), then write a retrospective: `), 'idle-tasks has the task');
+  assert.deepEqual(items[1].review, { verdict: 'approved', rating: 4, note: 'much better', task: T1 }, 'for the task the session was started for');
+  const [elsewhere] = read(sessionDir('h', 'other')).flatMap((entry) => entry.arrived).filter((item) => item.review);
+  assert.match(elsewhere.text, /It belongs in your answer: this work has no idle-tasks task\.$/, 'a task idle-tasks does not have is not one to record on');
+  assert.equal(elsewhere.review.task, 'T-none', 'though the review still counts for it');
+  const task = analytics.attribute(analytics.sessions('h')).tasks.find((t) => t.task === T1);
+  assert.deepEqual([task.rejections, task.rating, +task.toApproval.toFixed(3), +task.cost.toFixed(3)], [1, 4, 0.004, 0.006], 'what it cost up to the approval, not the turn that read it');
+  assert.match(analytics.report('h'), new RegExp(`${T1}: approved for \\$0\\.0040, rated 4 after 1 rejections`));
 });
 
 test('improvement takes up what a working session built, declaring it with its evidence, and assesses it later; analytics sets the tasks before and after against it', async () => {
@@ -674,7 +681,7 @@ const asks = (name, args) => [200, { choices: [{ message: { role: 'assistant', c
 
 // Runs the command line with its own user space, pointed at a stand-in provider.
 function cli(home, cwd, url, args, input) {
-  const env = { ...process.env, IDLE_HOME: home, OPENROUTER_API_KEY: 'test-key', IDLE_HARNESS_API: url, IDLE_HARNESS_MODEL: 'some/model' };
+  const env = { ...process.env, PATH: `${tasks}:${process.env.PATH}`, IDLE_HOME: home, OPENROUTER_API_KEY: 'test-key', IDLE_HARNESS_API: url, IDLE_HARNESS_MODEL: 'some/model' };
   const child = spawn(process.execPath, [join(root, 'bin/idle-harness.mjs'), ...args], { cwd, env });
   const result = { out: '', err: '', child };
   child.stdout.on('data', (data) => { result.out += data; });

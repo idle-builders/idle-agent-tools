@@ -27,7 +27,7 @@ node idle-harness/evals/run.ts seq-lab --structure frozen --steps 10
 node idle-harness/evals/bench.ts
 ```
 
-`--steps` runs the first steps only, a pilot. `bench.ts` compares each stream's arms over the runs in `results/`: the whole stream's cost with improvement counted apart, approvals, rating, the cost per step at the end, and what learning saved over frozen.
+`--steps` runs the first steps only, a pilot. `bench.ts` compares each stream's arms over the runs in `results/`: the whole stream's cost with improvement counted apart, approvals, rating, the cost per step at the end, and what learning saved over frozen. After the first improvement it also compares each family of steps with the same steps under frozen, and it reports the gate: which steps frozen never gets approved, which it gets right the first time for next to nothing, and whether enough lie between.
 
 | Stream | Kind of work | Steps | Source |
 |---|---|---|---|
@@ -57,8 +57,9 @@ One run of each arm, so the numbers are indicative only.
 
 - On `or-models`, learning paid for itself: 16% cheaper with improvement included, and below frozen from step 12 on. The first improvement promoted a diet-problem solver, used 14 times later, and the next block cost a fifth of frozen's per step. The last block is IndustryOR, where problems take other shapes; there the solver didn't fit and the lead was gone. That shift is an accident of how the stream was built, but a useful one.
 - On `seq-lab`, learning cost $0.41 more. Steps came to about the same ($1.01 against $1.07), and improvement took $0.47. The first two improvements kept nothing the steps used. The third, after step 30, promoted the ORF and digest tools, but with only ten steps left. In return, learning had no rejects, where frozen had three reopenings costing about $0.30.
+- Family by family after the first improvement, `or-models` learning cut the MAMO problems by 90% per step and IndustryOR by 26%. On `seq-lab`, learning was cheaper on six of ten families: ORF lengths by 71%, primers by about 30%. It was dearer on both digest families, by 42% and 70%. The digest tool came only with the last improvement. These are three steps a family, from one run each.
 - Frozen gets cheaper block by block on its own: from $0.039 to $0.015 per step on `seq-lab`. That comes from the order of the questions, not from learning, so a block is compared against the same block under `frozen`, never against block one.
-- Every approval cost both arms calls, and learning lost an improvement session to it. The base's `/approve` instruction asks the session to record the outcome on the `idle-tasks` task named by `--task`. The bench has no such task, and the sandbox keeps the `idle` store out of reach. So sessions probe for it, and the improvement sessions spent work on it. They wrote memories saying there was no task, and on `seq-lab` they patched `turn.ts` to run `idle show` and summarise why it was refused.
+- Every approval cost both arms calls, and learning lost an improvement session to it. The base's `/approve` instruction asks the session to record the outcome on the `idle-tasks` task named by `--task`. The bench has no such task, and the sandbox keeps the `idle` store out of reach. So sessions probe for it, and the improvement sessions spent work on it. They wrote memories saying there was no task, and on `seq-lab` they patched `turn.ts` to run `idle show` and summarise why it was refused. The base now asks idle-tasks itself whether the task exists, and asks the session to record on it only when it does.
 - Nine sessions out of 145 timed out at 30 minutes, three of them improvement sessions. Some were stalled model calls; others were long improvement sessions of 30–54 turns.
 
 ## Catalogue

@@ -41,6 +41,7 @@ export default function build(dir: string) {
     },
     steps: questions.map((q) => ({
       name: q.id,
+      family: q.kind,
       instruction: `Question ${q.id}: ${q.text} Answer from the data in data/ and write it to answers/${q.id}.json as answers/README.md says.`,
       tests: { 'test.sh': `node "\${TESTS:-/tests}/check.mjs" ${q.id}\n` },
     })),

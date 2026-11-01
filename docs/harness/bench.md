@@ -14,7 +14,7 @@ On disk a stream follows Harbor's multi-step task layout, so that a stream can l
 
 ```
 <stream>/
-  task.toml                   title, kind, improve_every, reopens; one [[steps]] per step, in order
+  task.toml                   title, kind, improve_every, reopens; one [[steps]] per step, in order, with its family
   environment/project/        the project every run starts from (Harbor: copied into the image)
   environment/seed/           with --seed, what a harness specialised on the work starts with
   tests/                      verifier helpers every step shares
@@ -33,7 +33,7 @@ Every stream runs under the runner's structures: `frozen` (nothing carries over:
 
 ## What it reports
 
-Per run: steps approved, approved the first time, cost to approval and rating per block, calls to the harness's own tools per block, and the whole stream's cost with improvement counted apart. Across runs, `node evals/bench.ts` compares each stream's arms: the mean whole-stream cost, approval share and rating, the cost per step in the last block, the payoff (frozen's cost minus learning's, improvement included), and the step from which learning's running total stays below frozen's.
+Per run: steps approved, approved the first time, cost to approval and rating per block, calls to the harness's own tools per block, and the whole stream's cost with improvement counted apart. Across runs, `node evals/bench.ts` compares each stream's arms: the mean whole-stream cost, approval share and rating, the cost per step in the last block, the payoff (frozen's cost minus learning's, improvement included), and the step from which learning's running total stays below frozen's. After the first improvement it sets each family's steps against the same steps under `frozen`: a stream's order makes some stretches cheaper whether or not anything was learned, so a step is compared only with its own kind. Over the frozen runs, it reports the gate.
 
 ## The first streams
 
@@ -50,5 +50,5 @@ Next in line: a SWE-Chain chain (the agent's own code carries forward, hidden up
 - The verifier and the right answers stay outside the sandbox. A harness that closes its loops reads whatever it can reach (E18).
 - Feedback says what failed, never the answer: a stream that taught answers would reward memorising them.
 - A step must be answerable from the project and the instruction, or from tools the session can install. A step that needs a lookup the harness cannot make measures the lookup.
-- A stream earns its place in a pilot: most steps approved under `frozen`, at costs that vary from step to step. A stream nothing passes, or everything passes for the same cost, shows nothing about learning.
+- A step shows learning only in the band between out of reach and no room. Out of reach means `frozen` never gets it approved. No room means `frozen` gets it right the first time, every run, for under a third of the stream's median step. A stream passes the gate when at most a quarter of its steps are out of reach and at least half are in the band. `bench.ts` names the steps outside it, for the stream's source to drop.
 - Ordering, held-out steps after the stream, and a shift halfway are open. The continual-learning benchmarks use all three; the first streams run in one fixed order.

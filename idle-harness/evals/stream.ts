@@ -74,7 +74,7 @@ export type Built = {
   project: Record<string, string>;
   seed?: Record<string, string>;
   tests: Record<string, string>;
-  steps: { name: string; instruction: string; tests?: Record<string, string>; min_reward?: number }[];
+  steps: { name: string; family?: string; instruction: string; tests?: Record<string, string>; min_reward?: number }[]; // family: steps of one shape, compared with each other
 };
 
 export function write(dir: string, stream: Built) {
@@ -86,7 +86,7 @@ export function write(dir: string, stream: Built) {
     }
   };
   const meta = Object.entries(stream.metadata).map(([key, v]) => `${key} = ${JSON.stringify(v)}`).join('\n');
-  const steps = stream.steps.map((s) => `[[steps]]\nname = ${JSON.stringify(s.name)}${s.min_reward === undefined ? '' : `\nmin_reward = ${s.min_reward}`}`).join('\n\n');
+  const steps = stream.steps.map((s) => `[[steps]]\nname = ${JSON.stringify(s.name)}${s.family === undefined ? '' : `\nfamily = ${JSON.stringify(s.family)}`}${s.min_reward === undefined ? '' : `\nmin_reward = ${s.min_reward}`}`).join('\n\n');
   put(dir, { 'task.toml': `[metadata]\ntitle = ${JSON.stringify(stream.title)}\n${meta}\n\n${steps}\n` });
   put(join(dir, 'environment', 'project'), stream.project);
   if (stream.seed) put(join(dir, 'environment', 'seed'), stream.seed);

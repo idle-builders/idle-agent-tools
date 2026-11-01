@@ -1,6 +1,6 @@
 // The plain front end and the human's commands. A front end only writes to a session's inbox and follows its record.
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
 import { constants } from 'node:os';
 import { createInterface } from 'node:readline';
@@ -53,6 +53,9 @@ function show(entry: any) {
   if (entry.stopped) process.stderr.write(`! stopped (${entry.stopped})\n`);
 }
 
+// Whether idle-tasks has the task, asked here rather than left to the agent to find out.
+const known = (task: string) => spawnSync('idle', ['show', task], { stdio: 'ignore', timeout: 10_000 }).status === 0;
+
 // The human's answer to a piece of work, for the agent to read and the record to keep. Anything else is a message.
 function review(line: string, task?: string): { text: string; review: Review } | string | null {
   const said = line.trim().match(/^\/(approve|rate|reject)(?:\s+([\s\S]*))?$/);
@@ -69,7 +72,7 @@ function review(line: string, task?: string): { text: string; review: Review } |
   // The task is done once approved: what the human said goes onto it, and whoever drove it looks back.
   const retro = 'a retrospective: what went well and what was friction, put down to a process or a tool, never to yourself, citing the turns that show it (session#turn)';
   const text = verdict !== 'approved' ? (verdict === 'rejected' ? `${words}\n\nThe work is open again.` : words)
-    : task ? `${words}\n\nPut this on task ${task} as its outcome (idle task --id ${task} --outcome "…"), then write ${retro}, on the same task (idle memory --kind retro --task ${task}). If idle-tasks has no task ${task}, do neither and give the retrospective in your answer.`
+    : task && known(task) ? `${words}\n\nPut this on task ${task} as its outcome (idle task --id ${task} --outcome "…"), then write ${retro}, on the same task (idle memory --kind retro --task ${task}).`
     : `${words}\n\nWrite ${retro}. It belongs in your answer: this work has no idle-tasks task.`;
   return { text, review: { verdict, ...(rating ? { rating } : {}), note, ...(task ? { task } : {}) } };
 }

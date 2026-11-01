@@ -26,10 +26,10 @@ writeFileSync(out, JSON.stringify(given === undefined || Number.isNaN(given) ? {
 `;
 
 export default async function build(dir: string) {
-  const mamo = (await jsonl('Mamo/Mamo_complex_lp_clean.jsonl')).slice(0, 15).map((r) => ({ text: r.Question, answer: Number(r.Answer) }));
+  const mamo = (await jsonl('Mamo/Mamo_complex_lp_clean.jsonl')).slice(0, 15).map((r) => ({ text: r.Question, answer: Number(r.Answer), family: 'MAMO ComplexLP' }));
   const rank = { Easy: 0, Medium: 1, Hard: 2 } as Record<string, number>;
   const industry = (await jsonl('IndustryOR.jsonl')).map((r, i) => ({ ...r, i })).sort((a, b) => rank[a.difficulty] - rank[b.difficulty] || a.i - b.i)
-    .slice(0, 15).map((r) => ({ text: r.en_question, answer: Number(r.en_answer) }));
+    .slice(0, 15).map((r) => ({ text: r.en_question, answer: Number(r.en_answer), family: `IndustryOR ${r.difficulty}` }));
   const problems = [...mamo, ...industry];
   const name = (i: number) => `p${String(i + 1).padStart(2, '0')}`;
   write(dir, {
@@ -39,6 +39,7 @@ export default async function build(dir: string) {
     tests: { 'check.mjs': CHECK, 'answers.json': JSON.stringify(Object.fromEntries(problems.map((p, i) => [name(i), p.answer]))) },
     steps: problems.map((p, i) => ({
       name: name(i),
+      family: p.family,
       instruction: `Problem ${name(i)}: ${p.text.trim()}\n\nFind the optimal objective value and write it to answers/${name(i)}.json as answers/README.md says.`,
       tests: { 'test.sh': `node "\${TESTS:-/tests}/check.mjs" ${name(i)}\n` },
     })),

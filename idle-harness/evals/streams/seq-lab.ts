@@ -64,6 +64,7 @@ export default async function build(dir: string) {
     answers[name] = String.fromCharCode(65 + options.indexOf(row.ideal));
     return {
       name,
+      family: row.subtask.replace(/-v1-public$/, ''),
       instruction: `Question ${name}: ${row.question}\n\n${options.map((o, k) => `${String.fromCharCode(65 + k)}. ${o}`).join('\n')}\n\nWrite the letter of your answer to answers/${name}.json as answers/README.md says.`,
       tests: { 'test.sh': `node "\${TESTS:-/tests}/check.mjs" ${name}\n` },
     };
