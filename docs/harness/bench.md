@@ -41,6 +41,7 @@ Per run: steps approved, approved the first time, cost to approval and rating pe
 |---|---|---|---|---|
 | `data-desk` | data analysis over one messy export | 40 | a query tool, notes on the export's quirks | our E20 |
 | `seq-lab` | molecular biology on raw sequences: ORFs, PCR primers and amplicons, digests, GC | 40 | a sequence toolkit | LAB-Bench SeqQA, the families answerable from the sequence alone |
+| `seq-gen` | seq-lab's families on a generated library of sequences and an enzyme table, every answer computed | 40 + 10 held out | a sequence toolkit | generated from a seed (Dr Zero's shape), variants for order and a shift halfway |
 | `or-models` | operations research: word problems to optimisation models | 30 | a solver set-up, formulation patterns | the cleaned IndustryOR and MAMO ComplexLP sets |
 
 Next in line: a SWE-Chain chain (the agent's own code carries forward, hidden upstream tests), AppWorld's dev split (one world of apps, state checks) and VerilogEval (one simulator). How each was chosen is in `reports/Benchmarks for harness tuning evals.md`.
@@ -51,4 +52,4 @@ Next in line: a SWE-Chain chain (the agent's own code carries forward, hidden up
 - Feedback says what failed, never the answer: a stream that taught answers would reward memorising them.
 - A step must be answerable from the project and the instruction, or from tools the session can install. A step that needs a lookup the harness cannot make measures the lookup.
 - A step shows learning only in the band between out of reach and no room. Out of reach means `frozen` never gets it approved. No room means `frozen` gets it right the first time, every run, for under a third of the stream's median step. A stream passes the gate when at most a quarter of its steps are out of reach and at least half are in the band. `bench.ts` names the steps outside it, for the stream's source to drop.
-- Ordering, held-out steps after the stream, and a shift halfway are open. The continual-learning benchmarks use all three; the first streams run in one fixed order.
+- Ordering, held-out steps after the stream, and a shift halfway are what the continual-learning benchmarks use. `seq-gen` has all three, as named variants of one source; the other streams run in one fixed order.

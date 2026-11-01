@@ -74,7 +74,7 @@ export type Built = {
   project: Record<string, string>;
   seed?: Record<string, string>;
   tests: Record<string, string>;
-  steps: { name: string; family?: string; instruction: string; tests?: Record<string, string>; min_reward?: number }[]; // family: steps of one shape, compared with each other
+  steps: { name: string; family?: string; instruction: string; tests?: Record<string, string>; workdir?: Record<string, string>; min_reward?: number }[]; // family: steps of one shape, compared with each other
 };
 
 export function write(dir: string, stream: Built) {
@@ -91,7 +91,8 @@ export function write(dir: string, stream: Built) {
   put(join(dir, 'environment', 'project'), stream.project);
   if (stream.seed) put(join(dir, 'environment', 'seed'), stream.seed);
   put(join(dir, 'tests'), stream.tests);
-  for (const step of stream.steps) put(join(dir, 'steps', step.name), { 'instruction.md': `${step.instruction}\n`, ...Object.fromEntries(Object.entries(step.tests ?? {}).map(([p, c]) => [`tests/${p}`, c])) });
+  const under = (folder: string, files: Record<string, string> = {}) => Object.fromEntries(Object.entries(files).map(([p, c]) => [`${folder}/${p}`, c]));
+  for (const step of stream.steps) put(join(dir, 'steps', step.name), { 'instruction.md': `${step.instruction}\n`, ...under('tests', step.tests), ...under('workdir', step.workdir) });
 }
 
 // The streams there are: a source streams/<name>.ts, or a stream written by hand in streams/<name>/.

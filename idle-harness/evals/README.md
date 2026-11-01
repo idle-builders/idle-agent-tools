@@ -33,6 +33,7 @@ node idle-harness/evals/bench.ts
 |---|---|---|---|
 | `data-desk` | data analysis over one messy export | 40 | E20 |
 | `seq-lab` | molecular biology on raw sequences | 40 | LAB-Bench SeqQA, ten families answerable from the sequence |
+| `seq-gen` | molecular biology on a generated library | 40 + 10 held out | seq-lab's families, generated, every answer computed; `-o2`, `-o3` other orders, `-shift` new sequences and enzymes halfway |
 | `or-models` | operations research word problems | 30 | MAMO ComplexLP and IndustryOR, as cleaned by LLM4OR |
 
 ### What the pilots showed

@@ -902,3 +902,37 @@ test('a stream of the bench: read from its Harbor layout, checked outside the se
   assert.equal(review(run, 2), null);
   assert.deepEqual(run.verdicts.get(2), [{ reward: 1 }]);
 });
+
+test('seq-gen: the reference gets hand-made cases right, and every step approves its right answer and refuses a wrong one', async () => {
+  const seq = await import(`${root}/evals/fixtures/seq.ts`);
+  const { toml, verify } = await import(`${root}/evals/stream.ts`);
+  const E = Object.fromEntries([...seq.ENZYMES, ...seq.SHIFTED].map((e) => [e.name, e]));
+  assert.deepEqual(seq.orfs('CCATGAAATAGCC').map((o) => o.protein), ['MK']);
+  assert.deepEqual(seq.orfs('ATGATGAAATAA').map((o) => o.protein), ['MMK'], 'an ATG inside an ORF starts no other');
+  assert.deepEqual(seq.orfs(seq.reverse('GGATGCCCTGAGG')).map((o) => [o.strand, o.protein]), [[-1, 'MP']]);
+  assert.equal(seq.longest('ATGAAATAAATGCCCTAA'), undefined, 'a tie has no longest');
+  assert.deepEqual(seq.digest('AAGAATTCAAGGATCCAA', [E.EcoRI, E.BamHI]), [3, 8, 7]);
+  assert.deepEqual(seq.digest('CCCGGGCCCGGG', [E.SmaI, E.MspI]), [2, 1, 5, 1, 3]);
+  assert.deepEqual(seq.digest('GGACCGGTCC', [E.AvaII]), [1, 5, 4], 'sites with ambiguity codes');
+  assert.equal(seq.tm('AATTGGCC'), 24);
+  const r = seq.random(5);
+  const [x, f, mid, b, y] = [30, 20, 60, 20, 30].map((n) => Array.from({ length: n }, () => 'ACGT'[Math.floor(r() * 4)]).join(''));
+  const t = x + f + mid + b + y;
+  assert.equal(seq.amplicon(t, seq.reverse(b), f), 100);
+  assert.equal(seq.amplicon(t, `GC${E.EcoRI.site}${f}`, seq.reverse(b)), 108, 'tails count');
+  assert.equal(seq.amplicon(t, f, b), null, 'both on one strand');
+
+  const { home } = sandbox();
+  const dir = join(home, 'seq-gen');
+  (await import(`${root}/evals/streams/seq-gen.ts`)).build(dir, { held: false });
+  const answers = JSON.parse(readFileSync(join(dir, 'tests', 'answers.json'), 'utf8'));
+  const project = join(home, 'lab');
+  mkdirSync(join(project, 'answers'), { recursive: true });
+  for (const { name } of toml(readFileSync(join(dir, 'task.toml'), 'utf8')).steps) {
+    const w = answers[name];
+    const primers = w.kind === 'design' || w.kind === 'clone';
+    const said = (answer) => { writeFileSync(join(project, 'answers', `${name}.json`), JSON.stringify(answer)); return verify(dir, name, project).reward; };
+    assert.equal(said(primers ? w.example : { answer: w.kind === 'percent' ? +w.truth.toFixed(1) : w.truth }), 1, `${name} ${w.kind}: the right answer`);
+    assert.equal(said(primers ? { ...w.example, forward: w.template.slice(w.from - 2, w.from + 18) } : { answer: w.kind === 'lengths' ? [0] : w.kind === 'percent' ? w.truth + 1 : typeof w.truth === 'number' ? w.truth + 1 : 'X' }), 0, `${name} ${w.kind}: a wrong one`);
+  }
+});
