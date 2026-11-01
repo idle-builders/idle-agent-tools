@@ -101,7 +101,7 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
   const minutes = scenario.minutes ?? 15;
   const fresh = (step: Scenario['steps'][number]): step is string | { message: string; harness?: string; in?: string; task?: string } | { improve: true; harness?: string } =>
     typeof step === 'string' || (typeof step === 'object' && ('message' in step || ('improve' in step && structure !== 'frozen')));
-  const messages = scenario.steps.filter(fresh).length;
+  const messages = scenario.steps.filter((step) => fresh(step) && !(typeof step === 'object' && 'when' in step)).length; // an improvement that waits for ripeness may not come
   // Another message to session n, in the session it was: a reopening or a review.
   const again = async (n: number, message: string) => {
     const more = await session(run, run.where.get(n)!, run.sessions.get(n)!, n, message, minutes);
