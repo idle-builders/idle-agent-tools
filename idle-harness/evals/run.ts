@@ -1,10 +1,10 @@
 // Runs evals through a real model: each scenario a few times, in throwaway harnesses, the way a user would.
 //
 //   node idle-harness/evals/run.ts [E1 E2 … | <stream> …] [--runs <n>] [--keep] [--structure layered|open|frozen] [--seed]
-//                                  [--steps <n>] [--no-sandbox]
+//                                  [--steps <n>] [--improve-at <n,…>] [--no-sandbox]
 //
 // An eval is a scenario in scenarios/ or a stream of the bench in streams/ (see stream.ts); --steps runs only the
-// first n steps of a stream. Every run writes its result to evals/results/. --keep leaves the harnesses and the project copy in place.
+// first n steps of a stream, --improve-at improves only after the steps it names. Every run writes its result to evals/results/. --keep leaves the harnesses and the project copy in place.
 // --structure says what becomes of the changes working sessions make (see Structure). Improvement sessions start as
 // the base starts them, from its brief. --seed starts the harness as one specialised on the work would start, where
 // the eval says what that is. Sessions run sandboxed unless --no-sandbox (see sandbox).
@@ -157,7 +157,7 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
   const entries = [...run.sessions.keys()].flatMap((n) => run.records(n));
   const changes = ledger(run);
   const result = {
-    eval: scenario.id, title: scenario.title, intents: scenario.intents, structure, seeded, sandboxed, attempt, harness: run.name, project: run.cwd, places: Object.fromEntries(run.places),
+    eval: scenario.id, title: scenario.title, intents: scenario.intents, structure, seeded, ...(at ? { improveAt: at } : {}), sandboxed, attempt, harness: run.name, project: run.cwd, places: Object.fromEntries(run.places),
     at: new Date(started).toISOString(), minutes: +((Date.now() - started) / 60_000).toFixed(1),
     model: entries.find((entry) => entry.model)?.model ?? null,
     cost: +(sum(entries) + run.readingCost).toFixed(4), readingCost: +run.readingCost.toFixed(4),
@@ -183,14 +183,15 @@ const sandboxed = !(args.includes('--no-sandbox') && args.splice(args.indexOf('-
 const seeded = args.includes('--seed') && Boolean(args.splice(args.indexOf('--seed'), 1));
 const runs = Number(option('--runs') ?? 1);
 const limit = option('--steps');
+const at = option('--improve-at')?.split(',').map(Number);
 const structure = (option('--structure') ?? 'layered') as Structure;
 if (!['layered', 'open', 'frozen'].includes(structure)) throw new Error('--structure is layered, open or frozen');
-const variant = [structure === 'layered' ? '' : structure, seeded ? 'seeded' : ''].filter(Boolean).join(', ');
+const variant = [structure === 'layered' ? '' : structure, seeded ? 'seeded' : '', at ? `improve at ${at.join(',')}` : ''].filter(Boolean).join(', ');
 const files = readdirSync(join(here, 'scenarios')).filter((file) => file.endsWith('.ts')).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 const scenarios: Scenario[] = [];
 for (const file of files) scenarios.push((await import(join(here, 'scenarios', file))).default);
 const wanted = args.map((a) => a.toLowerCase());
-for (const name of names().filter((name) => wanted.includes(name))) scenarios.push(stream(await folder(name), limit ? Number(limit) : undefined));
+for (const name of names().filter((name) => wanted.includes(name))) scenarios.push(stream(await folder(name), limit ? Number(limit) : undefined, at));
 const chosen = args.length ? scenarios.filter((s) => wanted.includes(s.id.toLowerCase())) : scenarios;
 
 for (const scenario of chosen) {

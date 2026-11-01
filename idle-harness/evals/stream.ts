@@ -112,8 +112,9 @@ export async function folder(name: string): Promise<string> {
 
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 
-// A stream as an eval: its first `limit` steps, each reviewed until approved or out of reopenings.
-export function stream(dir: string, limit?: number): Scenario {
+// A stream as an eval: its first `limit` steps, each reviewed until approved or out of reopenings. Improvement comes after
+// every improve_every steps, or after the steps `at` names instead.
+export function stream(dir: string, limit?: number, at?: number[]): Scenario {
   const id = basename(dir);
   const task = toml(readFileSync(join(dir, 'task.toml'), 'utf8'));
   const meta = task.metadata ?? {};
@@ -137,7 +138,7 @@ export function stream(dir: string, limit?: number): Scenario {
         return said.length < reopens ? `/reject ${verdict.feedback ?? 'it is not right yet.'}` : null;
       },
     });
-    if (every && (i + 1) % every === 0 && i + 1 < all.length) steps.push(IMPROVE);
+    if ((at ? at.includes(i + 1) : every && (i + 1) % every === 0) && i + 1 < all.length) steps.push(IMPROVE);
   });
   return {
     id,

@@ -1,7 +1,7 @@
 // What the bench shows: for each stream, its runs in evals/results/ grouped by arm, and what learning saved over the
 // frozen floor, improvement included.
 //
-//   node idle-harness/evals/bench.ts [<stream> …]
+//   node idle-harness/evals/bench.ts [<stream> …] [--since <date>]
 //
 // Runs compare only with runs of the same length: a pilot of ten steps is its own row. Steps are set against steps of
 // their own family, since a stream's order makes some stretches cheaper whether or not anything is learned. The gate
@@ -14,14 +14,16 @@ import { fileURLToPath } from 'node:url';
 import { BUILT, names, STREAMS, toml } from './stream.ts';
 
 const results = fileURLToPath(new URL('results/', import.meta.url));
-const wanted = process.argv.slice(2);
+const args = process.argv.slice(2);
+const since = args.includes('--since') ? args.splice(args.indexOf('--since'), 2)[1] : '';
+const wanted = args;
 const streams = names().filter((name) => !wanted.length || wanted.includes(name));
 
 type Session = { improvement: boolean; cost: number; verdicts?: { reward: number; rating?: number }[] };
-type Result = { eval: string; structure: string; seeded: boolean; sessions: Session[]; at: string };
+type Result = { eval: string; structure: string; seeded: boolean; improveAt?: number[]; sessions: Session[]; at: string };
 
 const all: Result[] = existsSync(results) ? readdirSync(results).filter((file) => file.endsWith('.json'))
-  .map((file) => JSON.parse(readFileSync(join(results, file), 'utf8'))).filter((r) => streams.includes(r.eval)) : [];
+  .map((file) => JSON.parse(readFileSync(join(results, file), 'utf8'))).filter((r) => streams.includes(r.eval) && r.at >= since) : [];
 
 // A stream's steps as its task.toml lists them, when it is built.
 function shape(name: string): { every: number; steps: { name: string; family?: string }[] } {
@@ -61,7 +63,7 @@ function read(r: Result) {
 const percent = (x: number) => `${x > 0 ? '+' : ''}${Math.round(100 * x)}%`;
 
 for (const name of streams) {
-  const runs = all.filter((r) => r.eval === name).map((r) => ({ arm: [r.structure, r.seeded ? 'seeded' : ''].filter(Boolean).join(', '), ...read(r) }));
+  const runs = all.filter((r) => r.eval === name).map((r) => ({ arm: [r.structure, r.seeded ? 'seeded' : '', r.improveAt ? `at ${r.improveAt.join(',')}` : ''].filter(Boolean).join(', '), ...read(r) }));
   if (!runs.length) continue;
   const { every, steps } = shape(name);
   process.stdout.write(`${name}\n`);
