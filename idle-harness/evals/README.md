@@ -27,7 +27,7 @@ node idle-harness/evals/run.ts seq-lab --structure frozen --steps 10
 node idle-harness/evals/bench.ts
 ```
 
-`--steps` runs the first steps only, a pilot. `bench.ts` compares each stream's arms over the runs in `results/`: the whole stream's cost with improvement counted apart, approvals, rating, the cost per step at the end, and what learning saved over frozen. After the first improvement it also compares each family of steps with the same steps under frozen, and it reports the gate: which steps frozen never gets approved, which it gets right the first time for next to nothing, and whether enough lie between.
+`--steps` runs the first steps only, a pilot. `--improve-at <n,…>` improves only after the steps it names, and `--improve-at ripe` after any step once the base reads something ripe ([base.md](../../docs/harness/base.md#how-a-harness-gets-better)); `bench.ts` shows each as an arm of its own. `bench.ts` compares each stream's arms over the runs in `results/`: the whole stream's cost with improvement counted apart, approvals, rating, the cost per step at the end, and what learning saved over frozen. After the first improvement it also compares each family of steps with the same steps under frozen, and it reports the gate: which steps frozen never gets approved, which it gets right the first time for next to nothing, and whether enough lie between.
 
 | Stream | Kind of work | Steps | Source |
 |---|---|---|---|
@@ -171,6 +171,21 @@ The first E18 batch, run on 19 October without a sandbox, could not be used. All
 - **What follows for the evals.** Wherever the truth can be recovered inside one session by probing, the model closes that loop itself. The platform loop can only matter for loops whose feedback spans sessions: a verdict that comes after the session has ended, a signal that only shows across many tasks, a requester's taste that no single task reveals.
 - **A base bug.** A harness tool that left a server open kept its session process alive after its last turn, so the front end waited until the eval's 30-minute limit. That is why so many E19 sessions timed out. A session run with `--once` now ends when its work is done, with a test.
 
+
+### When improvement would have been ripe
+
+The base's ripeness reading, replayed step by step over the kept harnesses of the four full runs, with improvement after three sessions show the same thing. No model was called.
+
+| Stream | Arm | First ripe | What | After each fixed improvement |
+|---|---|---|---|---|
+| `or-models` | frozen | step 4 | the integer-servings note, in s2–s4; the ILP solver at step 5 | — |
+| `or-models` | layered | step 3 | the ILP solver, in s1–s3 | never ripe again after step 10's, which promoted the solver |
+| `seq-lab` | frozen | step 9 | the PCR tool, in s7–s9; the ORF tool at step 12 | — |
+| `seq-lab` | layered | step 3 | the ORF tool, in s1–s3 | ripe again at 13 after step 10's, which kept nothing used; at 28, a memory note, after step 20's |
+
+- Ripeness comes one to seven steps before the fixed count of ten, on every run. On `seq-lab` layered, it was ripe for seven steps before the first improvement ran.
+- It reads what the fixed count missed. On `or-models`, nothing was ripe after the first improvement, so the second, which timed out with nothing, would not have run. On `seq-lab`, what was ripe stayed ripe after the first improvement, which kept nothing used, so the back-off would have raised the bar to four.
+- Grouping near-identical tools by their words works on these layers: ORF finders, PCR simulators, digests, cloning checks and the diet ILP solvers each come out as one group under their different names. Whole-description Jaccard did not; a third of the shorter one's words did, joining a group only when kin to half of it, so groups do not chain into one.
 
 ## What E16 showed under session layers
 

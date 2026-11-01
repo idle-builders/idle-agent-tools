@@ -115,9 +115,12 @@ async function loop(o: Options, record: string) {
   // The base's own compactions so far, so it can stop when they come too often or achieve too little.
   const compactions = earlier.flatMap((e) => (e.calls ?? []).filter((c: any) => c?.block === 'compact').map((c: any) => ({ n: e.n, by: c.by, reclaimed: c.before - c.after })));
   let guarded = false;
+  // The turns an improvement session's brief gave it.
+  let budget: number | undefined = earlier.flatMap((e) => e.arrived ?? []).find((item: Item) => item.budget)?.budget;
 
   const first = (last?.n ?? -1) + 1;
   for (let n = first; ; n++) {
+    if (budget && improving(o.session) && n >= budget + improvement.TURNS.grace) return last;
     // With no answer to hand to the turn, there is nothing to do until something arrives.
     const { items, done } = await take(record, !response && !o.once);
     if (!response && !items.length) return last; // idle, and asked to run only until then
@@ -128,6 +131,8 @@ async function loop(o: Options, record: string) {
       told.add(key);
       arrived.push({ from: 'base', at: now(), text });
     };
+    budget ??= items.find((item) => item.budget)?.budget;
+    if (budget && improving(o.session) && n >= budget) tell('budget', `Your budget of ${budget} turns is spent. Finish the change in hand and declare it: the base ends this session in ${improvement.TURNS.grace} turns.`);
     // A working session saves the harness as it found it, then takes what it changes there itself into its layer.
     // Neither happens while an improvement session, whose changes these may be, is at work.
     if (layer && !improvement.running(o.harness)) {

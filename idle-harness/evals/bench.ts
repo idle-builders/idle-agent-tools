@@ -20,7 +20,7 @@ const wanted = args;
 const streams = names().filter((name) => !wanted.length || wanted.includes(name));
 
 type Session = { improvement: boolean; cost: number; verdicts?: { reward: number; rating?: number }[] };
-type Result = { eval: string; structure: string; seeded: boolean; improveAt?: number[]; sessions: Session[]; at: string };
+type Result = { eval: string; structure: string; seeded: boolean; improveAt?: number[] | 'ripe'; sessions: Session[]; at: string };
 
 const all: Result[] = existsSync(results) ? readdirSync(results).filter((file) => file.endsWith('.json'))
   .map((file) => JSON.parse(readFileSync(join(results, file), 'utf8'))).filter((r) => streams.includes(r.eval) && r.at >= since) : [];
@@ -56,6 +56,7 @@ function read(r: Result) {
     running,
     costs: steps.map((s) => s.cost),
     first: steps.map((s) => (s.verdicts ?? [])[0]?.reward >= 1),
+    improvedAfter: r.sessions.some((s) => s.improvement) ? r.sessions.findIndex((s) => s.improvement) : Infinity, // the steps before the first improvement
     ever: steps.map((s) => Boolean(approved(s))),
   };
 }
@@ -63,7 +64,7 @@ function read(r: Result) {
 const percent = (x: number) => `${x > 0 ? '+' : ''}${Math.round(100 * x)}%`;
 
 for (const name of streams) {
-  const runs = all.filter((r) => r.eval === name).map((r) => ({ arm: [r.structure, r.seeded ? 'seeded' : '', r.improveAt ? `at ${r.improveAt.join(',')}` : ''].filter(Boolean).join(', '), ...read(r) }));
+  const runs = all.filter((r) => r.eval === name).map((r) => ({ arm: [r.structure, r.seeded ? 'seeded' : '', r.improveAt === 'ripe' ? 'ripe' : r.improveAt ? `at ${r.improveAt.join(',')}` : ''].filter(Boolean).join(', '), ...read(r) }));
   if (!runs.length) continue;
   const { every, steps } = shape(name);
   process.stdout.write(`${name}\n`);
@@ -85,7 +86,8 @@ for (const name of streams) {
       const from = learning.findIndex((_, i) => learning.slice(i).every((cost, j) => cost <= frozen[i + j]));
       process.stdout.write(`    ${arm}: saves ${money(frozen.at(-1)! - learning.at(-1)!)} over frozen, improvement included; ${from < 0 ? 'its running total never stays below frozen' : `below frozen from step ${from + 1} on`}\n`);
       // Family by family, on the steps after the first improvement, where learning could have changed something.
-      const after = Math.min(every, length - 1);
+      const first = Math.min(...same.filter((r) => r.arm === arm).map((r) => r.improvedAfter));
+      const after = Math.min(Number.isFinite(first) ? first : every, length - 1);
       const families = [...new Set(steps.slice(after, length).map((s) => s.family).filter(Boolean))] as string[];
       if (!families.length) continue;
       const per = (of: typeof same, family: string) => mean(steps.slice(0, length).flatMap((s, i) => (i >= after && s.family === family ? of.map((r) => r.costs[i]) : [])));

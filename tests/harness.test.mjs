@@ -452,6 +452,38 @@ test('two sessions build their own version of a tool in their layers; analytics 
   assert.match(brief, /b: 4 model calls, \$0\.0400\n {2}asked: work\n {2}its own tools: check ×2 · its layer: tools\/check\.ts\n {2}said at the end: done/, 'each working session, digested');
 });
 
+test('improvement starts when what working sessions built again is ripe, gets turns in proportion, and backs off when what it took up went unused', async () => {
+  const { cwd, harness } = sandbox();
+  harnessFile(harness, 'config.json', JSON.stringify({ improve: 'ripe' }));
+  const build = async (session, file, about) => {
+    say(session, 'work');
+    const content = `export const description = '${about}';\nexport const parameters = { type: 'object', properties: {} };\nexport const run = () => 'ok';`;
+    await run({ harness: 'h', session, cwd, once: true, model: scripted([['write', { path: join(sessionDir('h', session), 'layer', 'tools', file), content }]]).model });
+  };
+  await build('a', 'orfs.ts', 'Count open reading frames in a DNA sequence on both strands');
+  await build('b', 'q2_orf.ts', 'Open reading frames of a DNA sequence, both strands, by length');
+  await build('c', 'gc.ts', 'GC content');
+  assert.equal(improvement.due('h'), false, 'two sessions are not ripe yet');
+  await build('d', 'orf-count.ts', 'Count open reading frames longer than a length');
+  assert.equal(improvement.due('h'), true);
+  assert.deepEqual(improvement.ripe('h'), { things: ['a tool built again in a, b, d: tools/orfs.ts, tools/q2_orf.ts, tools/orf-count.ts'], after: 3, unused: 0, turns: 16 });
+
+  improvement.prepare('h', 'improve-1');
+  await run({ harness: 'h', session: 'improve-1', cwd, once: true, model: scripted(...Array.from({ length: 30 }, () => [['bash', { command: 'true' }]])).model });
+  const record = read(sessionDir('h', 'improve-1'));
+  assert.equal(record[0].arrived[0].budget, 16);
+  assert.match(record[0].arrived[0].text, /What is ripe, by the base's reading of the working sessions since: \n- a tool built again in a, b, d/);
+  assert.equal(record.length, 20, 'ended four turns after its budget');
+  assert.match(record[16].arrived.at(-1).text, /^Your budget of 16 turns is spent\./);
+
+  for (const [session, file] of [['e', 'orf.ts'], ['f', 'orf2.ts'], ['g', 'orf3.ts']]) await build(session, file, 'Open reading frames of a DNA sequence');
+  assert.equal(improvement.due('h'), false, 'it took up nothing a later session used, so three sessions are not enough now');
+  assert.match(improvement.brief('h'), /show the same thing: improveAfter in .+config\.json, 3 now, raised by 1 because/);
+  await build('h4', 'orf4.ts', 'Open reading frames of a DNA sequence');
+  assert.equal(improvement.ripe('h').after, 4);
+  assert.equal(improvement.due('h'), true);
+});
+
 test('with "layers": false, working sessions change the harness itself and declare it, as before', async () => {
   const { cwd, harness } = sandbox();
   harnessFile(harness, 'config.json', JSON.stringify({ layers: false }));
@@ -517,7 +549,7 @@ test('improvement: a session of its own from a brief the base writes, by hand or
   assert.equal(improvement.due('h'), false, 'not without improveEvery');
   harnessFile(harness, 'config.json', JSON.stringify({ improveEvery: 1 }));
   assert.equal(improvement.due('h'), false, 'nor without an approved task since the last improvement');
-  send(sessionDir('h', 's'), 'review', 'The human approved the work.', { verdict: 'approved', note: '' });
+  send(sessionDir('h', 's'), 'review', 'The human approved the work.', { review: { verdict: 'approved', note: '' } });
   Object.assign(process.env, { OPENROUTER_API_KEY: 'test-key', IDLE_HARNESS_API: 'http://127.0.0.1:9', IDLE_HARNESS_MODEL: 'some/model' });
   try {
     await run({ harness: 'h', session: 's', cwd, once: true, model: scripted('thanks').model });
@@ -890,6 +922,8 @@ test('a stream of the bench: read from its Harbor layout, checked outside the se
   const scenario = stream(dir);
   assert.deepEqual(scenario.steps.map((s) => (s.message ? `${s.message} for ${s.task}` : s.review ? 'review' : s.improve ? 'improve' : '?')),
     ['step a for stream-a', 'review', 'step b for stream-b', 'review', 'improve', 'step c for stream-c', 'review']);
+  assert.deepEqual(stream(dir, undefined, 'ripe').steps.map((s) => (s.message ? 'step' : s.review ? 'review' : s.when ? 'improve when ripe' : '?')),
+    ['step', 'review', 'improve when ripe', 'step', 'review', 'improve when ripe', 'step', 'review']);
 
   const project = join(home, 'project');
   mkdirSync(project);

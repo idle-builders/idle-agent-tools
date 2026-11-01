@@ -44,6 +44,9 @@ function known(version: string): string {
   return version;
 }
 
+// The paths that differ between two versions.
+export const changed = (dir: string, from: string, to: string) => git(dir, 'diff', '--name-only', known(from), known(to)).split('\n').filter(Boolean);
+
 export const show = (dir: string, version: string) => git(dir, 'show', '--stat', '--patch', '--format=%h  %cd  %s', known(version));
 
 // What a change says about itself, kept as a note on its version: what friction it answers, what it changes, what it

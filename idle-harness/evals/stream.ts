@@ -7,6 +7,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ripe } from '../src/improve.ts';
 import { BARE, calls, check, IMPROVE } from './scenario.ts';
 import type { Scenario, Step, Verdict } from './scenario.ts';
 
@@ -114,8 +115,9 @@ export async function folder(name: string): Promise<string> {
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
 
 // A stream as an eval: its first `limit` steps, each reviewed until approved or out of reopenings. Improvement comes after
-// every improve_every steps, or after the steps `at` names instead.
-export function stream(dir: string, limit?: number, at?: number[]): Scenario {
+// every improve_every steps, after the steps `at` names instead, or, `ripe`, after any step once the base reads
+// something ripe.
+export function stream(dir: string, limit?: number, at?: number[] | 'ripe'): Scenario {
   const id = basename(dir);
   const task = toml(readFileSync(join(dir, 'task.toml'), 'utf8'));
   const meta = task.metadata ?? {};
@@ -139,7 +141,9 @@ export function stream(dir: string, limit?: number, at?: number[]): Scenario {
         return said.length < reopens ? `/reject ${verdict.feedback ?? 'it is not right yet.'}` : null;
       },
     });
-    if ((at ? at.includes(i + 1) : every && (i + 1) % every === 0) && i + 1 < all.length) steps.push(IMPROVE);
+    if (i + 1 === all.length) return;
+    if (at === 'ripe') steps.push({ improve: true, when: (run) => ripe(run.name).things.length > 0 });
+    else if (at ? at.includes(i + 1) : every && (i + 1) % every === 0) steps.push(IMPROVE);
   });
   return {
     id,

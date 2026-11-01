@@ -96,6 +96,6 @@ export function memory(...dirs: string[]): string {
 export const layered = (dir: string) => settings(dir).layers !== false;
 
 // What the harness has set for itself. A config.json that cannot be read counts as none.
-export function settings(dir: string): { model?: string; contextLimit?: number; improveEvery?: number; skills?: string[]; layers?: boolean } {
+export function settings(dir: string): { model?: string; contextLimit?: number; improveEvery?: number; improve?: 'ripe'; improveAfter?: number; skills?: string[]; layers?: boolean } {
   try { return JSON.parse(readFileSync(join(dir, 'config.json'), 'utf8')); } catch { return {}; }
 }

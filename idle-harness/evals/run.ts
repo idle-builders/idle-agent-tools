@@ -1,10 +1,11 @@
 // Runs evals through a real model: each scenario a few times, in throwaway harnesses, the way a user would.
 //
 //   node idle-harness/evals/run.ts [E1 E2 … | <stream> …] [--runs <n>] [--keep] [--structure layered|open|frozen] [--seed]
-//                                  [--steps <n>] [--improve-at <n,…>] [--no-sandbox]
+//                                  [--steps <n>] [--improve-at <n,…>|ripe] [--no-sandbox]
 //
 // An eval is a scenario in scenarios/ or a stream of the bench in streams/ (see stream.ts); --steps runs only the
-// first n steps of a stream, --improve-at improves only after the steps it names. Every run writes its result to evals/results/. --keep leaves the harnesses and the project copy in place.
+// first n steps of a stream, --improve-at improves only after the steps it names, or, ripe, after any step once the
+// base reads something ripe. Every run writes its result to evals/results/. --keep leaves the harnesses and the project copy in place.
 // --structure says what becomes of the changes working sessions make (see Structure). Improvement sessions start as
 // the base starts them, from its brief. --seed starts the harness as one specialised on the work would start, where
 // the eval says what that is. Sessions run sandboxed unless --no-sandbox (see sandbox).
@@ -128,6 +129,7 @@ async function once(scenario: Scenario, attempt: number, keep: boolean, structur
       continue;
     }
     if (!fresh(step)) continue;
+    if (typeof step === 'object' && 'when' in step && step.when && !step.when(run)) continue;
     const { message, harness, improve, in: place, task } = typeof step === 'string' ? { message: step, harness: undefined, improve: false, in: undefined, task: undefined }
       : 'improve' in step ? { message: null, harness: step.harness, improve: true, in: undefined, task: undefined } : { ...step, improve: false };
     if (place && !run.places.has(place)) {
@@ -183,10 +185,11 @@ const sandboxed = !(args.includes('--no-sandbox') && args.splice(args.indexOf('-
 const seeded = args.includes('--seed') && Boolean(args.splice(args.indexOf('--seed'), 1));
 const runs = Number(option('--runs') ?? 1);
 const limit = option('--steps');
-const at = option('--improve-at')?.split(',').map(Number);
+const improveAt = option('--improve-at');
+const at = improveAt === 'ripe' ? 'ripe' : improveAt?.split(',').map(Number);
 const structure = (option('--structure') ?? 'layered') as Structure;
 if (!['layered', 'open', 'frozen'].includes(structure)) throw new Error('--structure is layered, open or frozen');
-const variant = [structure === 'layered' ? '' : structure, seeded ? 'seeded' : '', at ? `improve at ${at.join(',')}` : ''].filter(Boolean).join(', ');
+const variant = [structure === 'layered' ? '' : structure, seeded ? 'seeded' : '', at === 'ripe' ? 'improve when ripe' : at ? `improve at ${at.join(',')}` : ''].filter(Boolean).join(', ');
 const files = readdirSync(join(here, 'scenarios')).filter((file) => file.endsWith('.ts')).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
 const scenarios: Scenario[] = [];
 for (const file of files) scenarios.push((await import(join(here, 'scenarios', file))).default);

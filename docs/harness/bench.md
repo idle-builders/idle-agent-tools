@@ -29,7 +29,7 @@ A stream is built by a source script, `evals/streams/<name>.ts`, which writes it
 
 ## Arms
 
-Every stream runs under the runner's structures: `frozen` (nothing carries over: the floor), `layered` (the base), `open`, and with `--seed` where the stream has a seed (the ceiling). `--steps <n>` runs only the first n steps: a pilot, to see that a cheap model reaches approval at all before a stream is worth running in full.
+Every stream runs under the runner's structures: `frozen` (nothing carries over: the floor), `layered` (the base), `open`, and with `--seed` where the stream has a seed (the ceiling). `--steps <n>` runs only the first n steps: a pilot, to see that a cheap model reaches approval at all before a stream is worth running in full. `--improve-at <n,…>` improves only after the steps it names, and `--improve-at ripe` whenever the base reads something ripe, each as an arm of its own.
 
 ## What it reports
 

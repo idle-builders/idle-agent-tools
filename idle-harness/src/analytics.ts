@@ -191,6 +191,34 @@ export function layers(harness: string): { path: string; built: { session: strin
   return [...byPath].map(([path, built]) => ({ path, built })).sort((a, b) => b.built.length - a.built.length || a.path.localeCompare(b.path));
 }
 
+// The words a file says it is about: a tool's or a note's description and its name, or else how it starts.
+const COMMON = new Set('the and for with from that this are its into each one any all not but per out use when how what which than then them they their been was were has have had give gives given returns return string number type object description name answer answers question questions'.split(' '));
+function gist(file: string): Set<string> {
+  const text = readFileSync(file, 'utf8');
+  const said = text.match(/description\s*[:=]\s*(['"`])([\s\S]*?)\1/)?.[2] ?? text.match(/^description:\s*(.+)$/m)?.[1] ?? text.slice(0, 600);
+  const name = file.split('/').pop()!.replace(/\.\w+$/, '').replace(/[_-]/g, ' ');
+  return new Set((`${said} ${name}`.toLowerCase().match(/[a-z]{3,}/g) ?? []).map((w) => w.replace(/s$/, '')).filter((w) => !COMMON.has(w)));
+}
+
+// Near-identical: over a third of the words of the shorter one shared.
+const kin = (a: Set<string>, b: Set<string>) => [...a].filter((w) => b.has(w)).length / (Math.min(a.size, b.size) || 1) > 0.35;
+
+// What the given working sessions built again in their layers: tools, and memory notes, grouped where
+// near-identical, with the sessions each group spans.
+export function rebuilt(harness: string, among: string[]): { kind: 'tool' | 'memory'; paths: string[]; sessions: string[] }[] {
+  const built = layers(harness).flatMap(({ path, built }) => built.filter((b) => among.includes(b.session)).map((b) => ({ ...b, path })))
+    .filter((b) => /^tools\/[\w-]+\.ts$/.test(b.path) || (/^memory\/.+\.md$/.test(b.path) && !b.path.endsWith('/MEMORY.md')))
+    .map((b) => ({ ...b, kind: b.path.startsWith('tools/') ? 'tool' as const : 'memory' as const, words: gist(b.file) }));
+  // A file joins the first group of its kind it is kin to at least half of, so that groups do not chain into one.
+  const groups: (typeof built)[] = [];
+  for (const b of built.sort((x, y) => among.indexOf(x.session) - among.indexOf(y.session))) {
+    const near = groups.find((g) => g[0].kind === b.kind && 2 * g.filter((other) => kin(other.words, b.words)).length >= g.length);
+    if (near) near.push(b);
+    else groups.push([b]);
+  }
+  return groups.map((g) => ({ kind: g[0].kind, paths: [...new Set(g.map((b) => b.path))], sessions: [...new Set(g.map((b) => b.session))] }));
+}
+
 // Each working session since the last improvement, digested, so improvement reads records only to check something:
 // what it was asked, what it cost, which of its own tools it called, what its layer holds, the follow-ups it got and
 // what it said at the end, which is where a retrospective is.

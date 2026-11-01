@@ -20,7 +20,7 @@ export type Check = { name: string; pass: boolean | null; detail?: string };
 export type Step =
   | string
   | { message: string; harness?: string; in?: string; task?: string }
-  | { improve: true; harness?: string }
+  | { improve: true; harness?: string; when?(run: Run): boolean }
   | { reopen(run: Run, n: number): string | null }
   | { review(run: Run, n: number): string | null }
   | ((run: Run) => void | Promise<void>);

@@ -97,7 +97,7 @@ function chat() {
   const deliver = (line: string) => {
     const verdict = review(line, task);
     if (typeof verdict === 'string') process.stderr.write(`! ${verdict}\n`);
-    else if (verdict) send(dir, 'review', verdict.text, verdict.review);
+    else if (verdict) send(dir, 'review', verdict.text, { review: verdict.review });
     else send(dir, 'user', line);
     return typeof verdict !== 'string';
   };
