@@ -663,13 +663,15 @@ test('a session picks up where its record ends', async () => {
   assert.equal(record.at(-1).cwd, cwd, 'and stays where it was working');
 });
 
-// A stand-in for OpenRouter: answers every chat completion with `answer(request)`.
+// A stand-in for OpenRouter: answers every chat completion with `answer(request)`, or leaves it to the function that returns.
 async function provider(answer) {
   const server = createServer((request, response) => {
     let body = '';
     request.on('data', (chunk) => { body += chunk; });
     request.on('end', () => {
-      const [status, json] = answer(JSON.parse(body), request);
+      const reply = answer(JSON.parse(body), request);
+      if (typeof reply === 'function') return reply(response);
+      const [status, json] = reply;
       response.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(json));
     });
   });
@@ -713,6 +715,28 @@ test('a model call sends what the model is shown and brings back the cost', asyn
     assert.equal(seen.length, 2, 'a refused request is not tried again');
     assert.equal((await model({ ...context, model: 'flaky' }, [])).message.content, 'hi', 'a provider failing behind OpenRouter is tried again');
   } finally {
+    fake.close();
+  }
+});
+
+test('a model call that thinks long is waited for while bytes arrive; one that goes silent is given up and tried again', async () => {
+  let calls = 0;
+  const fake = await provider(() => (response) => {
+    calls++;
+    response.writeHead(200, { 'content-type': 'application/json' });
+    if (calls === 2) return response.write('\n');
+    // Blank lines while the model thinks, for longer than the silence a call is given, as OpenRouter sends them.
+    const beat = setInterval(() => response.write('\n         \n'), 50);
+    setTimeout(() => { clearInterval(beat); response.end(JSON.stringify({ choices: [{ message: { role: 'assistant', content: `answer ${calls}` } }] })); }, 600);
+  });
+  Object.assign(process.env, { OPENROUTER_API_KEY: 'test-key', IDLE_HARNESS_API: fake.url, IDLE_HARNESS_SILENCE: '300' });
+  try {
+    const context = { model: 'some/model', system: '', tools: [], messages: [] };
+    assert.equal((await model(context, [])).message.content, 'answer 1', 'a call longer than the silence is not cut off');
+    assert.equal((await model(context, [])).message.content, 'answer 3', 'a call that goes silent is tried again');
+    assert.equal(calls, 3);
+  } finally {
+    delete process.env.IDLE_HARNESS_SILENCE;
     fake.close();
   }
 });

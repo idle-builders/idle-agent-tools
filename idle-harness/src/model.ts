@@ -24,7 +24,12 @@ export const tooLong = (error: any) => refused(error) && /context|too long|too m
 
 const pause = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
-// No time limit: Node's fetch gives up on an answer that takes five minutes to start, and a long reasoning call can.
+// A call that sends nothing for this long has stalled. While the model thinks, OpenRouter sends a blank line every
+// three seconds, before and between the parts of its answer.
+const SILENCE = 5 * 60_000;
+
+// No time limit on the whole call: Node's fetch gives up on an answer that takes five minutes to start, and a long
+// reasoning call can. Only silence ends it.
 function post(url: string, key: string, body: string): Promise<{ status: number; text: string }> {
   return new Promise((done, fail) => {
     const headers = { authorization: `Bearer ${key}`, 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) };
@@ -35,6 +40,8 @@ function post(url: string, key: string, body: string): Promise<{ status: number;
       answer.on('end', () => done({ status: answer.statusCode ?? 0, text }));
       answer.on('error', fail);
     });
+    const silence = Number(process.env.IDLE_HARNESS_SILENCE) || SILENCE;
+    request.setTimeout(silence, () => request.destroy(new Error(`nothing arrived for ${silence / 1000}s`)));
     request.on('error', fail);
     request.end(body);
   });
