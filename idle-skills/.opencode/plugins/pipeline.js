@@ -2,8 +2,7 @@
  * idle-skills — opencode plugin.
  *
  * Ports the "edit-streak" hook: after THRESHOLD code edits the orchestrator is
- * nudged to delegate to its idle-builder/idle-planner/idle-reviewer team instead of doing the
- * heavy lifting itself. The nudge is appended to the edit tool's result, which
+ * nudged to hand the building to a fresh agent instead of doing it itself. The nudge is appended to the edit tool's result, which
  * opencode surfaces to the model on its next turn (verified against the
  * `@opencode-ai/plugin` `tool.execute.after` signature: `output.output` is the
  * mutable result string the model reads).
@@ -17,7 +16,7 @@
  * Caveat (matches the Cursor/Gemini/Codex/Copilot ports): opencode does not
  * expose an orchestrator/subagent distinction at the tool layer, so — unlike
  * Claude, which skips edits made inside a subagent — this can't tell whether an
- * edit came from the orchestrator or from the idle-builder. The nudge is best-effort
+ * edit came from the lead or from a builder. The nudge is best-effort
  * and may also fire inside a subagent.
  *
  * Also ports the skill-load injection hook: when a pipeline skill loads, fresh
@@ -81,9 +80,8 @@ export const AgentPipeline = async () => {
           if (output && typeof output.output === "string") {
             output.output +=
               `\n\n---\n[idle-skills] You've made ${THRESHOLD} code edits since the last ` +
-              `reminder. You're the orchestrator — delegate to your team instead of doing the ` +
-              `heavy lifting yourself: the idle-builder implements & ships, the idle-planner plans & ` +
-              `structures, the idle-reviewer reviews & critiques. Hand structured work to a subagent.`;
+              `reminder. You're the lead — hand the building to a fresh agent instead of doing it ` +
+              `yourself, and have another one review it.`;
           }
         }
 

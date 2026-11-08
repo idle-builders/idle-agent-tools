@@ -14,7 +14,7 @@ AUTOMATIONS_DIR="$CODEX_DIR/automations"
 CONFIG_FILE="$CODEX_DIR/config.toml"
 mkdir -p "$AGENTS_DIR" "$AUTOMATIONS_DIR"
 
-for name in idle-planner idle-reviewer idle-builder; do
+for name in idle-reviewer idle-builder; do
   cp "$PLUGIN_ROOT/.codex/agents/$name.toml" "$AGENTS_DIR/$name.toml"
 done
 cp "$PLUGIN_ROOT/.codex/automations/weekly-self-improve.toml" "$AUTOMATIONS_DIR/weekly-self-improve.toml"
@@ -25,10 +25,6 @@ START_MARKER="# BEGIN agent-skills-pipeline codex agents"
 END_MARKER="# END agent-skills-pipeline codex agents"
 BLOCK="$(cat <<'EOF'
 # BEGIN agent-skills-pipeline codex agents
-[agents.idle-planner]
-description = "Idle planning persona for concept, design, and architecture planning."
-config_file = "./agents/idle-planner.toml"
-
 [agents.idle-reviewer]
 description = "Idle review persona for critiques and read-only implementation review."
 config_file = "./agents/idle-reviewer.toml"

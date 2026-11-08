@@ -6,7 +6,7 @@
 # @lore: Codex 0.142.5 — SessionStart hook stdout marked failed, any JSON shape; keep codex output empty
 fmt="${1:-claude}"
 
-MSG_JSON='idle-skills is active.\n\n- Large or non-trivial changes: drop a task in the record of work (/idle), then run\n  it through /orchestrate, which works out what is wanted and plans it with the user. Don'\''t freelance big changes.\n- Conceptual questions (what a thing IS or should be): resolve them\n  interactively with the user - don'\''t settle load-bearing meaning alone.\n- Structured work uses three dedicated agents; you are the orchestrator, delegate\n  work to your team: idle-planner (concept/design/architecture) plans & structures\n  details; idle-builder implements & ships and thus does the heavy lifting; idle-reviewer\n  critiques and reviews.'
+MSG_JSON='idle-skills is active.\n\n- Large or non-trivial changes: drop a task in the record of work (/idle), then run\n  it through /orchestrate, which works out what is wanted and plans it with the user. Don'\''t freelance big changes.\n- Conceptual questions (what a thing IS or should be): resolve them\n  interactively with the user - don'\''t settle load-bearing meaning alone.\n- Structured work runs through /orchestrate: you are the lead. You interview, plan\n  and dispatch; fresh agents you spawn do the building and the reviewing.'
 
 case "$fmt" in
   cursor)  printf '{"additional_context":"%s"}\n' "$MSG_JSON" ;;

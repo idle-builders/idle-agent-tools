@@ -9,7 +9,7 @@
 #
 #   skills  → .opencode/skills/    (opencode's own skill dir — self-contained,
 #                                    no dependency on .claude/ or shared .agents/)
-#   agents  → .opencode/agents/    (opencode-format idle-planner / idle-reviewer / idle-builder)
+#   agents  → .opencode/agents/    (opencode-format idle-reviewer / idle-builder)
 #   plugin  → .opencode/plugins/   (post-edit guards)
 #   helpers → .opencode/pipeline/   (skill-load injection the plugin shells out
 #                                    to; kept out of plugins/ because opencode
@@ -78,7 +78,7 @@ fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
 NODE
 echo "  ✓ record   → $CONFIG_FILE (mcp.idle)"
 
-# 2. Agents — opencode-format idle-planner / idle-reviewer / idle-builder.
+# 2. Agents — opencode-format idle-reviewer / idle-builder.
 mkdir -p "$AGENTS_DIR"
 cp "$SRC/idle-skills/.opencode/agents/"*.md "$AGENTS_DIR/"
 echo "  ✓ agents   → $AGENTS_DIR"
@@ -108,10 +108,8 @@ idle-skills is active. Work in structured phases, not freeform.
   orchestrate skill, which works out what is wanted and plans it with the user. Don't freelance big changes.
 - Conceptual questions (what a thing IS or should be): resolve them interactively
   with the user — don't settle load-bearing meaning alone.
-- Structured work uses three dedicated agents; you are the orchestrator, delegate
-  work to your team: @idle-planner (concept/design/architecture) plans & structures
-  details; @idle-builder implements & ships and thus does the heavy lifting; @idle-reviewer
-  critiques and reviews.
+- Structured work runs through the orchestrate skill: you are the lead. You interview,
+  plan and dispatch; fresh agents you spawn do the building and the reviewing.
 $END
 EOF
 
@@ -129,7 +127,7 @@ cat <<EOF
 
 Done. Open the target project in opencode and restart it.
   • skills surface via the skill tool
-  • personas are available as @idle-planner, @idle-reviewer, @idle-builder
+  • personas are available as @idle-reviewer, @idle-builder
   • post-edit guards and skill-load injection load from the plugin automatically
 
 To pin models, set 'model: <provider>/<id>' in the agent files under $AGENTS_DIR.

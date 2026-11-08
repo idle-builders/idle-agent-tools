@@ -49,7 +49,35 @@ anything they have not already settled: what is wanted, why, where it stops, and
 
 Keep going until you could explain the goal back and they would agree. Write to the root: the **goal** —
 what is true when it is done, and why; **How it is used** — how someone would use the result, written
-before anything is built; a short **plan**; and the **interview**, verbatim.
+before anything is built; and the **interview**, verbatim.
+
+## Plan
+
+The work runs on an active plan. Write it before anything is built, show it to the maintainer next to
+their words, and build against it. When the work shows the plan is wrong, change the plan first and say
+what changed.
+
+The plan says how the goal will be reached: the shape of the change and, where it matters, the technical
+shape — the contracts between parts, the data, the order things land in. For each goal it says how it
+will be validated deterministically that it works as intended: a test, a script that drives the real
+path, a fixture and its diff, a render against an approved one — whatever fits. That validation is built
+first, before the work it checks.
+
+- **Extend before inventing.** Start from what exists: a supported primitive, an existing module, an
+  established pattern. A new component, layer, abstraction or dependency is a claim you have to justify.
+- **Simple beats perfect.** When two designs both reach the goal, take the boring one; when unsure, the
+  smaller one. Completeness nobody asked for is a defect. The engineering tier in `pipeline.config.yml`
+  sets rigor, never size.
+- **Check what you name.** Every symbol, file, table or contract the plan names: confirm it exists in the
+  shape assumed, find what depends on it, and cite `file:line`. A premise you cannot check — live state,
+  an external service — is an assumption: record it as one.
+- **Lock what is costly**, public or irreversible as a decision. Leave local, reversible choices to the
+  builder.
+
+Repository conventions — `AGENTS.md`, `CLAUDE.md`, project memory, and any rule files
+`pipeline.config.yml` names — bind the plan and never add to it.
+
+A spawned agent can draft a large plan; it is still yours to check and to show.
 
 ## Shaping the work
 
