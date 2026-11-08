@@ -3,13 +3,12 @@
 # install-opencode.sh — install idle-skills into a project (or globally)
 # for opencode.
 #
-# opencode plugins are JavaScript/TypeScript modules. Skills, agents, and rules
+# opencode plugins are JavaScript/TypeScript modules. Skills and rules
 # are still file-based configuration, so this script drops each pipeline piece
 # where opencode looks.
 #
 #   skills  → .opencode/skills/    (opencode's own skill dir — self-contained,
 #                                    no dependency on .claude/ or shared .agents/)
-#   agents  → .opencode/agents/    (opencode-format idle-reviewer)
 #   plugin  → .opencode/plugins/   (post-edit guards)
 #   helpers → .opencode/pipeline/   (skill-load injection the plugin shells out
 #                                    to; kept out of plugins/ because opencode
@@ -40,7 +39,6 @@ done
 
 if [ "$GLOBAL" -eq 1 ]; then
   SKILLS_DIR="$HOME/.config/opencode/skills"
-  AGENTS_DIR="$HOME/.config/opencode/agents"
   PLUGINS_DIR="$HOME/.config/opencode/plugins"
   HELPERS_DIR="$HOME/.config/opencode/pipeline"
   RULES_FILE="$HOME/.config/opencode/AGENTS.md"
@@ -48,7 +46,6 @@ if [ "$GLOBAL" -eq 1 ]; then
   SCOPE="global (~/.config/opencode)"
 else
   SKILLS_DIR="$TARGET/.opencode/skills"
-  AGENTS_DIR="$TARGET/.opencode/agents"
   PLUGINS_DIR="$TARGET/.opencode/plugins"
   HELPERS_DIR="$TARGET/.opencode/pipeline"
   RULES_FILE="$TARGET/AGENTS.md"
@@ -78,23 +75,18 @@ fs.writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
 NODE
 echo "  ✓ record   → $CONFIG_FILE (mcp.idle)"
 
-# 2. Agents — opencode-format idle-reviewer.
-mkdir -p "$AGENTS_DIR"
-cp "$SRC/idle-skills/.opencode/agents/"*.md "$AGENTS_DIR/"
-echo "  ✓ agents   → $AGENTS_DIR"
-
-# 3. Plugin — post-edit guards.
+# 2. Plugin — post-edit guards.
 mkdir -p "$PLUGINS_DIR"
 cp "$SRC/idle-skills/.opencode/plugins/pipeline.js" "$PLUGINS_DIR/"
 echo "  ✓ plugin   → $PLUGINS_DIR/pipeline.js"
 
-# 4. Helpers the plugin shells out to. Not in plugins/ — opencode imports every
+# 3. Helpers the plugin shells out to. Not in plugins/ — opencode imports every
 #    module there, and these are executables with their own entry points.
 mkdir -p "$HELPERS_DIR"
 cp "$SRC/idle-skills/hooks/inject.mjs" "$HELPERS_DIR/"
 echo "  ✓ helpers  → $HELPERS_DIR"
 
-# 5. Session-start guidance — an idempotent managed block in AGENTS.md.
+# 4. Session-start guidance — an idempotent managed block in AGENTS.md.
 #    (Canonical text lives in hooks/session-start.sh; kept in sync here.)
 BEGIN="<!-- agent-pipeline:begin -->"
 END="<!-- agent-pipeline:end -->"
@@ -127,8 +119,5 @@ cat <<EOF
 
 Done. Open the target project in opencode and restart it.
   • skills surface via the skill tool
-  • personas are available as @idle-reviewer
   • post-edit guards and skill-load injection load from the plugin automatically
-
-To pin models, set 'model: <provider>/<id>' in the agent files under $AGENTS_DIR.
 EOF

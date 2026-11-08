@@ -1,7 +1,6 @@
 ---
 name: design
 description: "Decide consequential UX/UI behavior for an agreed task. Use when a changed user-facing surface is not already determined by an existing approved pattern and a design system is configured. Skip backend/infra and trivial pattern-following changes."
-persona: orchestrator
 applies-to: [frontend, application]
 user-invocable: false
 ---

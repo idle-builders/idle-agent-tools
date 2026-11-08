@@ -47,7 +47,7 @@ vcs: github
 # subset (lint + typecheck) when the full gate is too slow per spawn.
 #
 # TRUST: where the skill-load hook is wired, this command is run by the hook
-# itself whenever /review or /build loads, or a reviewer starts — a hook runs
+# itself whenever /review or /build loads — a hook runs
 # directly, so it is not covered by the host's tool-permission prompts. Point
 # it only at commands this repository owns, and treat an edit to this line the
 # way you would treat an edit to a CI workflow. Set PIPELINE_SKILL_INJECT=off
