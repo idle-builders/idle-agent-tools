@@ -50,7 +50,7 @@ const CODEX_MAX_LINES = positiveInt(process.env.PIPELINE_INJECT_MAX_LINES, 60);
 const CHECK_TIMEOUT_MS = positiveInt(process.env.PIPELINE_CHECK_TIMEOUT_MS, 45_000);
 
 const DIGEST_SKILLS = new Set([
-  'refine', 'design', 'architecture', 'ship', 'review', 'write-code', 'write-tests',
+  'design', 'architecture', 'ship', 'review', 'write-code', 'write-tests',
   'architecture-critique',
 ]);
 
