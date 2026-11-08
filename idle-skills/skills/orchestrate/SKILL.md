@@ -131,7 +131,7 @@ tasks relied on it.
 ## Finishing
 
 No task is done without a review by a fresh agent that did not do the work. When the root's goal is
-shown reached and reviewed, open a PR with `/ship` if the maintainer wants one; otherwise stop at
+shown reached and reviewed, open a PR with `/create-pr` if the maintainer wants one; otherwise stop at
 committed, reviewed work and say so. Then `/retro` the root, mark it done, and archive it once merged or
 abandoned.
 
