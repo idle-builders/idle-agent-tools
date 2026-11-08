@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Install Pipeline's Codex subagent roles into a target project.
+# Install the weekly /self-improve automation into a target project, and remove
+# the persona roles earlier versions installed.
 # Usage: scripts/install-codex.sh [project-root]
 
 PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../idle-skills" && pwd)"
@@ -9,50 +10,25 @@ TARGET_ROOT="${1:-$(pwd)}"
 TARGET_ROOT="$(cd "$TARGET_ROOT" && pwd)"
 
 CODEX_DIR="$TARGET_ROOT/.codex"
-AGENTS_DIR="$CODEX_DIR/agents"
 AUTOMATIONS_DIR="$CODEX_DIR/automations"
 CONFIG_FILE="$CODEX_DIR/config.toml"
-mkdir -p "$AGENTS_DIR" "$AUTOMATIONS_DIR"
+mkdir -p "$AUTOMATIONS_DIR"
 
-for name in idle-reviewer; do
-  cp "$PLUGIN_ROOT/.codex/agents/$name.toml" "$AGENTS_DIR/$name.toml"
-done
 cp "$PLUGIN_ROOT/.codex/automations/weekly-self-improve.toml" "$AUTOMATIONS_DIR/weekly-self-improve.toml"
 
-touch "$CONFIG_FILE"
-
-START_MARKER="# BEGIN agent-skills-pipeline codex agents"
-END_MARKER="# END agent-skills-pipeline codex agents"
-BLOCK="$(cat <<'EOF'
-# BEGIN agent-skills-pipeline codex agents
-[agents.idle-reviewer]
-description = "Idle review persona for critiques and read-only implementation review."
-config_file = "./agents/idle-reviewer.toml"
-# END agent-skills-pipeline codex agents
-EOF
-)"
-
-python3 - "$CONFIG_FILE" "$START_MARKER" "$END_MARKER" "$BLOCK" <<'PY'
+rm -f "$CODEX_DIR/agents/idle-planner.toml" "$CODEX_DIR/agents/idle-reviewer.toml" "$CODEX_DIR/agents/idle-builder.toml"
+if [ -f "$CONFIG_FILE" ]; then
+  python3 - "$CONFIG_FILE" "# BEGIN agent-skills-pipeline codex agents" "# END agent-skills-pipeline codex agents" <<'PY'
 from pathlib import Path
 import sys
 
-path = Path(sys.argv[1])
-start = sys.argv[2]
-end = sys.argv[3]
-block = sys.argv[4]
+path, start, end = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 text = path.read_text()
-
 if start in text and end in text:
     before, rest = text.split(start, 1)
     _, after = rest.split(end, 1)
-    text = before.rstrip() + "\n\n" + block + after
-else:
-    text = text.rstrip()
-    if text:
-        text += "\n\n"
-    text += block + "\n"
-
-path.write_text(text)
+    path.write_text(before.rstrip() + ("\n" + after.lstrip() if after.strip() else "\n"))
 PY
+fi
 
-printf 'Installed Pipeline Codex agents into %s\n' "$CODEX_DIR"
+printf 'Installed the weekly self-improve automation into %s\n' "$CODEX_DIR"

@@ -2,7 +2,6 @@
 name: setup
 description: "Configure evidence-backed, maintainer-approved pipeline rule slots and design-system paths for this repository. Use during installation or when repository conventions change; do not promote generic best practices into binding policy automatically."
 argument-hint: "[rule slot to configure, e.g. 'design-system', 'testing', 'security', 'docs', or 'all']"
-persona: any
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
 ---

@@ -1,29 +1,26 @@
 #!/usr/bin/env node
-// Spawn/skill injection — put the state of the task tree being worked, mechanical
-// check results and the diff into an agent's context at the moment it starts,
-// so it begins with evidence instead of spending round trips fetching it.
+// Skill-load injection — put the state of the task tree being worked, mechanical
+// check results and the diff into an agent's context when it loads /build,
+// /review or another workflow skill, so it begins with evidence instead of
+// spending round trips fetching it.
 //
-// Two entry points: SubagentStart, which reaches the spawned agent rather than
-// its parent, and skill load (PostToolUse, matcher `Skill`) on hosts that
-// dispatch skills as a tool call. Claude has both; codex has no skill event.
+// One entry point: skill load (PostToolUse, matcher `Skill`) on hosts that
+// dispatch skills as a tool call. It fires in whichever agent loads the skill,
+// so a spawned builder or reviewer gets its own. Codex has no skill event.
 //
 // Both hosts read hooks only from hooks/hooks.json — a manifest `hooks` path
 // and an inline manifest object were both tried on Claude and neither fires —
 // so the two hosts share one envelope.
 //
-// Codex fires SessionStart but not SubagentStart — verified with hooks trusted:
-// codex prints `hook: SessionStart` and never `hook: SubagentStart`, and nothing
-// reaches the subagent. Declaring it is inert there, not harmful.
-//
 // Codex gates hooks on a hash of hooks.json AND of the script it runs, and an
 // untrusted hook stalls `codex exec` rather than being skipped. Any edit to
-// either costs the maintainer one re-approval, and a spawn that hangs after an
+// either costs the maintainer one re-approval, and a session that hangs after an
 // upgrade means untrusted, not broken. Editing the installed copy to debug it
 // breaks trust and produces exactly the symptom you were chasing.
 //
 // Usage: inject.mjs <claude|cursor|gemini|copilot|codex|opencode> [skill-name]
 // Envelope formats read the event payload on stdin; opencode takes the skill
-// name as an argument. Guard discipline: a spawn must never break — every
+// name as an argument. Guard discipline: a skill load must never break — every
 // failure degrades to silence, and the process always exits 0 (a non-zero exit
 // makes codex discard the output entirely).
 
@@ -53,22 +50,11 @@ const DIGEST_SKILLS = new Set([
   'design', 'ship', 'review', 'build',
 ]);
 
-// SubagentStart: what each role needs waiting for it when it wakes up.
-const AGENT_EXTRA = {
-  'idle-reviewer': { checks: true, diff: true },
-  // Some hosts fire the spawn event without naming the role. Everything an agent
-  // gets here is useful whatever it turns out to be: state, plus checks it would
-  // otherwise re-run. The diff is reviewer-specific and stays out.
-  '': { checks: true, checksNote: 'baseline, ran before this agent started' },
-};
-const DEFAULT_AGENT = '';
-
 const EXTRA = {
   review: { checks: true, diff: true },
   build: { checks: true, checksNote: 'baseline, ran before this session\'s edits' },
 };
 
-let lastEvent = 'skill';
 let maxLines = MAX_LINES;
 
 function positiveInt(raw, fallback) {
@@ -98,7 +84,7 @@ function readPayload() {
   }
 }
 
-// -> { kind: 'agent'|'skill', name } | null
+// -> { kind: 'skill', name } | null
 function resolveTarget(format) {
   const hint = process.argv[3] ?? '';
   if (format === 'opencode') {
@@ -107,16 +93,6 @@ function resolveTarget(format) {
   }
   const payload = readPayload();
   if (payload === null) return null;
-  const event = String(pick(payload, ['hook_event_name', 'hookEventName', 'event']) ?? '');
-
-  // Empty stdin means the host named no event. Inferring the spawn here rather
-  // than passing a flag keeps hooks.json byte-identical, which matters — codex
-  // keys hook trust on that file's hash, so editing it revokes consent.
-  const noPayload = Object.keys(payload).length === 0;
-  if (hint === 'spawn' || noPayload || /^subagent[_-]?start$/i.test(event)) {
-    const name = normalizeName(String(pick(payload, ['agent_type', 'agentType', 'subagent_type']) ?? ''));
-    return { kind: 'agent', name: name || DEFAULT_AGENT };
-  }
 
   const tool = String(pick(payload, ['tool_name', 'toolName', 'tool']) ?? '');
   if (!SKILL_TOOL.test(tool)) return null;
@@ -125,7 +101,7 @@ function resolveTarget(format) {
   return name ? { kind: 'skill', name } : null;
 }
 
-// Hosts qualify plugin-provided names — "idle-skills:review", "idle-skills:idle-reviewer".
+// Hosts qualify plugin-provided names — "idle-skills:review", "idle-skills:build".
 // The routing tables key on the bare name.
 function normalizeName(raw) {
   return raw.replace(/^\//, '').split(/\s/)[0].toLowerCase().replace(/^[a-z0-9_-]+:/, '');
@@ -261,22 +237,14 @@ function buildInjection(format) {
   const target = resolveTarget(format);
   if (!target) return null;
 
-  let extra;
-  if (target.kind === 'agent') {
-    extra = AGENT_EXTRA[target.name];
-    if (!extra) return null;
-  } else {
-    if (!DIGEST_SKILLS.has(target.name)) return null;
-    extra = EXTRA[target.name] ?? {};
-  }
+  if (!DIGEST_SKILLS.has(target.name)) return null;
+  const extra = EXTRA[target.name] ?? {};
 
   const root = process.cwd();
   const active = findActiveRoot(root);
   if (!active) return null;
-  lastEvent = target.kind;
   // No leading bracket: codex discards stdout that looks like JSON but is not.
-  const label = target.name || 'spawn';
-  const sections = [`pipeline injection — ${target.kind}: ${label}, task: ${active.id}`];
+  const sections = [`pipeline injection — ${target.kind}: ${target.name}, task: ${active.id}`];
 
   const lore = findLore(root);
   if (lore) sections.push('## lore', cap(lore, 'git grep -n "@lore:"'));
@@ -330,8 +298,7 @@ function main() {
     process.stdout.write(`${message}\n`);
     return;
   }
-  const event = lastEvent === 'agent' ? 'SubagentStart' : 'PostToolUse';
-  process.stdout.write(`${JSON.stringify(formatMessage(format, event, message))}\n`);
+  process.stdout.write(`${JSON.stringify(formatMessage(format, 'PostToolUse', message))}\n`);
 }
 
 try {

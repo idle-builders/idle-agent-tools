@@ -2,7 +2,6 @@
 name: lore
 description: "Capture, scan, or index terse, currently actionable tribal knowledge about non-obvious cross-cutting constraints, workarounds, and gotchas. Use when missing context would cause a future mistake; never use lore as history, a changelog, or a second requirements system."
 argument-hint: "[file paths, 'scan' to find undocumented decisions, or 'index' to list all lore]"
-persona: any
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
 ---

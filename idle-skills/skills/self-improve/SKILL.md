@@ -2,7 +2,6 @@
 name: self-improve
 description: "Review accumulated retros, outcomes, interviews, and decisions to identify recurring evidence-backed patterns and propose surgical rule, memory, or skill changes for human approval. Works both when triggered manually and on a weekly schedule. Never applies changes automatically."
 argument-hint: "[optional: 'review', 'status', or focus area]"
-persona: any
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
 ---

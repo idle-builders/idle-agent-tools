@@ -1,7 +1,6 @@
 ---
 name: orchestrate
 description: "Lead a task to done for the maintainer: interview them for what they want, keep their words intact down the chain, shape the work, dispatch builders and reviewers, and report in plain language. Never creates scope."
-persona: orchestrator
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
 ---
@@ -94,8 +93,9 @@ is used` — working through the real consuming path.
 ## Dispatch
 
 Spawn agents to keep work out of your context; never claim a work task yourself. A builder is a fresh
-agent told to load `/build` for its task. The brief from the record is the prompt. If something the maintainer said matters and the brief lacks it, write it into the
-record first, then spawn.
+agent told to load `/build` for its task; a reviewer is a fresh agent that did not do the work, told to
+load `/review`. The brief from the record is the prompt. If something the maintainer said matters and
+the brief lacks it, write it into the record first, then spawn.
 
 Tell every agent who it is — `builder/<model>`, `reviewer/<model>` — and to say so on every call to the
 record. A reviewer that looks like the builder is refused.

@@ -24,9 +24,6 @@ drop a task ──▶ interview ──▶ plan the tree ──▶ build ──�
 | Path | Role |
 |---|---|
 | [`skills/`](skills/) | The 15 workflow skills (`SKILL.md`, [Agent Skills](https://agents.md/) standard) |
-| [`personas/`](personas/) | Persona source of truth; [`../scripts/generate-agents.mjs`](../scripts/generate-agents.mjs) renders every host format below |
-| [`agents/`](agents/) | Claude-format `idle-reviewer` (generated) |
-| [`agents-cursor/`](agents-cursor/), [`agents-antigravity/`](agents-antigravity/), [`.opencode/agents/`](.opencode/agents/), [`.codex/agents/`](.codex/agents/) | The same personas for Cursor, Antigravity, opencode and Codex (generated) |
 | [`hooks/`](hooks/) | Session-start + edit-streak + thrash guards, and spawn-time evidence injection (Claude, Cursor, Gemini, Copilot, Codex, opencode) |
 | [`.codex/automations/`](.codex/automations/), [`sidecars/`](sidecars/) | Weekly `/self-improve` routine definitions for Codex and Antigravity (and `/schedule` prompt in [`skills/self-improve/SKILL.md`](skills/self-improve/SKILL.md)) |
 | [`.claude-plugin/`](.claude-plugin/), [`.codex-plugin/`](.codex-plugin/), [`.cursor-plugin/`](.cursor-plugin/), [`plugin.json`](plugin.json), [`apm.yml`](apm.yml) | Plugin manifests for Claude Code, Codex, Cursor, Antigravity and APM |
@@ -71,24 +68,22 @@ The **engineering tier** is load-bearing and is chosen by customer, not by aspir
 
 Do not choose `critical` merely because software is deployed or stores real user data. Feature flags, audit systems, elaborate observability, formal rollback machinery, exhaustive fallbacks, and speculative abstractions require a concrete customer, regulatory, contractual, or blast-radius need. At every tier, build only what the goal and known risks require. `engineering.tier` is set once for the repository and describes the product, not the task.
 
-### Injected evidence when an agent starts
+### Injected evidence when a skill loads
 
 A fresh agent should not spend its first ten tool calls working out where it is. Where the host
-supports it ([`hooks/inject.mjs`](hooks/inject.mjs)), a spawned agent's context already contains the
-state of the task tree being worked — and, by role, fresh mechanical check results and the diff.
+supports it ([`hooks/inject.mjs`](hooks/inject.mjs)), loading a workflow skill puts the state of the
+task tree being worked into the context of the agent that loaded it — and, for `/build` and `/review`,
+fresh mechanical check results and the diff. The hook is `PostToolUse` on the `Skill` tool, so a
+spawned builder or reviewer gets its own. Codex has no skill lifecycle event.
 
-`SubagentStart` is the primary event: it exists on both Claude Code and Codex, and it injects into
-the *subagent's* context rather than the parent's. Claude Code additionally fires `PostToolUse` for
-the `Skill` tool, so skill-load injection works there as a supplement; Codex has no skill lifecycle
-event at all.
-
-| spawned as | receives |
+| skill | receives |
 |---|---|
-| `idle-reviewer` | state + check results + the diff since the work started |
+| `build` | state + check results, marked as a pre-edit baseline |
+| `review` | state + check results + the diff since the work started |
 
 **This runs `checks.preSpawn` (or `verify`) as a shell command.** A hook executes directly, so it is
-not covered by the host's tool-permission prompts: whatever that line contains runs when an agent
-starts. Point it only at commands the repository owns, and review changes to it as you would a CI
+not covered by the host's tool-permission prompts: whatever that line contains runs when the skill
+loads. Point it only at commands the repository owns, and review changes to it as you would a CI
 workflow.
 
 | Env var | Default | Effect |
