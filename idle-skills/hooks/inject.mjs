@@ -50,13 +50,12 @@ const CODEX_MAX_LINES = positiveInt(process.env.PIPELINE_INJECT_MAX_LINES, 60);
 const CHECK_TIMEOUT_MS = positiveInt(process.env.PIPELINE_CHECK_TIMEOUT_MS, 45_000);
 
 const DIGEST_SKILLS = new Set([
-  'design', 'ship', 'review', 'write-code', 'write-tests',
+  'design', 'ship', 'review', 'build',
 ]);
 
 // SubagentStart: what each role needs waiting for it when it wakes up.
 const AGENT_EXTRA = {
   'idle-reviewer': { checks: true, diff: true },
-  'idle-builder': { checks: true, checksNote: 'baseline, ran before this agent started' },
   // Some hosts fire the spawn event without naming the role. Everything an agent
   // gets here is useful whatever it turns out to be: state, plus checks it would
   // otherwise re-run. The diff is reviewer-specific and stays out.
@@ -66,8 +65,7 @@ const DEFAULT_AGENT = '';
 
 const EXTRA = {
   review: { checks: true, diff: true },
-  'write-code': { checks: true, checksNote: 'baseline, ran before this session\'s edits' },
-  'write-tests': { checks: true, checksNote: 'baseline, ran before this session\'s edits' },
+  build: { checks: true, checksNote: 'baseline, ran before this session\'s edits' },
 };
 
 let lastEvent = 'skill';
