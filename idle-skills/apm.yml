@@ -1,6 +1,6 @@
 name: idle-skills
-version: 0.10.1
-description: Multi-agent development on a shared record of work — interview, plan, build, review, ship. Needs idle-tasks.
+version: 0.11.0
+description: Multi-agent development workflow — interview, plan, build, review, PR. Works standalone or on a task tracker.
 author: Ambrovia
 license: Apache-2.0
 homepage: https://github.com/ambrovia/idle-agent-tools
@@ -10,9 +10,7 @@ keywords:
   - agents
   - pipeline
   - multi-agent
-  - tdd
   - review
-  - tasks
 includes: auto
 dependencies:
   apm: []

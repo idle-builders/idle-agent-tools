@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
   "name": "idle-agent-tools",
-  "description": "Idle agent tools: a shared record of work for coding agents, and a multi-agent development workflow on top of it.",
+  "description": "Idle agent tools: a shared record of work for coding agents, and a multi-agent development workflow that runs with or without it.",
   "owner": {
     "name": "Ambrovia",
     "url": "https://github.com/ambrovia"
@@ -13,7 +13,7 @@
     {
       "name": "idle-tasks",
       "source": "./idle-tasks",
-      "description": "The record of work for agents: tasks that nest into trees, and memories (decisions, assumptions, taste, and retros). Four operations over MCP and the idle CLI; the system runs your project's checks when a task is submitted. PGlite locally, any Postgres when shared. Bring your own workflow.",
+      "description": "The record of work for agents: tasks that nest into trees, and memories (decisions, assumptions, taste, and retros). Four operations over MCP and the idle CLI; the system runs your project's checks when a task is submitted. PGlite locally, any Postgres when shared. Bring your own workflow; with idle-skills it also hands builders and reviewers their evidence, and retro and self-improve learn from finished work.",
       "homepage": "https://github.com/ambrovia/idle-agent-tools",
       "license": "Apache-2.0",
       "keywords": [
@@ -23,13 +23,15 @@
         "mcp",
         "coordination",
         "multi-agent",
-        "swarm"
+        "swarm",
+        "retro",
+        "self-improve"
       ]
     },
     {
       "name": "idle-skills",
       "source": "./idle-skills",
-      "description": "An interview turns a dropped task into a goal and a plan you own; a planner breaks it into goals, builders and reviewers work them, and you contradict what is not done. 15 skills + 3 personas. Works on idle-tasks.",
+      "description": "An interview turns what you want into a goal and a plan you own; the lead breaks it into goals, fresh agents build and review them, and you contradict what is not done. 7 skills. Works standalone or on a task tracker.",
       "homepage": "https://github.com/ambrovia/idle-agent-tools",
       "license": "Apache-2.0",
       "keywords": [
@@ -39,9 +41,7 @@
         "interview",
         "planning",
         "review",
-        "ship",
-        "retro",
-        "self-improve",
+        "pull-request",
         "lore"
       ]
     }

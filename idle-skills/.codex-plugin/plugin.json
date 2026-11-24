@@ -1,7 +1,7 @@
 {
   "name": "idle-skills",
-  "description": "Multi-agent development on a shared record of work. An interview turns a dropped task into a goal and a plan you own; a planner breaks it into goals, builders and reviewers work them, and you contradict what is not done.",
-  "version": "0.10.1",
+  "description": "Multi-agent development with your intent kept intact. An interview turns what you want into a goal and a plan you own; the lead breaks it into goals, fresh agents build and review them with validation first, and you contradict what is not done. Works standalone or on a task tracker.",
+  "version": "0.11.0",
   "author": {
     "name": "Ambrovia"
   },
@@ -12,14 +12,13 @@
     "skills",
     "pipeline",
     "multi-agent",
-    "tdd",
     "review"
   ],
   "skills": "./skills",
   "interface": {
     "displayName": "Idle Skills",
-    "shortDescription": "Interview, plan, build, review and ship on a shared record of work.",
-    "longDescription": "Multi-agent development on a shared record of work. An interview turns a dropped task into a goal and a plan you own; a planner breaks it into goals, builders and reviewers work them, and you contradict what is not done. Skills cover refinement, program design, design, architecture, implementation, review, documentation, retro, self-improvement and shipping. Works on the idle-tasks record of work or standalone.",
+    "shortDescription": "Interview, plan, build and review, with your words kept intact.",
+    "longDescription": "Multi-agent development with your intent kept intact. An interview turns what you want into a goal and a plan you own; the lead breaks it into goals, fresh agents build and review them with validation first, and you contradict what is not done. Skills cover leading and planning the work, building with validation first, review, design, pull requests, lore and setup. Works standalone or on a task tracker.",
     "developerName": "Ambrovia",
     "category": "Productivity",
     "capabilities": [
