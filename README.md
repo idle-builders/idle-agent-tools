@@ -1,7 +1,7 @@
 <h1 align="center">Idle Agent Tools</h1>
 
 <p align="center">
-  <b>A shared record of work for coding agents, and a multi-agent development workflow on top of it.</b><br>
+  <b>A shared record of work for coding agents, and a multi-agent development workflow that runs with or without it.</b><br>
   From agentic development to agents <i>as the developer team</i>.
 </p>
 
@@ -11,25 +11,25 @@ Two plugins, usable together or apart. One marketplace serves both on every harn
 
 ### [`idle-tasks/`](idle-tasks/) — the record of work
 
-Agents do not talk to each other; they read and write one record. It holds two things: **tasks** — goals that nest into trees, need each other and carry scope — and **memories** (`decision`, `assumption`, standing `taste`, and `retro` observations). Anyone can drop a task at any time; a title is enough. Four operations (`task`, `memory`, `show`, `list`), the same over the `idle` CLI and over MCP; everything else is a state. Claims are leases, refused when scopes overlap. When a task is submitted **the system runs your project's checks itself** and sends a failing task back with the output — no agent's word counts. It lives in your home folder on PGlite, on any Postgres you bring, or in Linear. It knows nothing about our workflow: bring your own. Also on npm as [`idle-agent-tasks`](https://www.npmjs.com/package/idle-agent-tasks).
+Agents do not talk to each other; they read and write one record. It holds two things: **tasks** — goals that nest into trees, need each other and carry scope — and **memories** (`decision`, `assumption`, standing `taste`, and `retro` observations). Anyone can drop a task at any time; a title is enough. Four operations (`task`, `memory`, `show`, `list`), the same over the `idle` CLI and over MCP; everything else is a state. Claims are leases, refused when scopes overlap. When a task is submitted **the system runs your project's checks itself** and sends a failing task back with the output — no agent's word counts. It lives in your home folder on PGlite, on any Postgres you bring, or in Linear. Bring your own workflow; with idle-skills it also hands each builder and reviewer the state, checks and diff when their skill loads, and its `retro` and `self-improve` skills learn from finished work. Also on npm as [`idle-agent-tasks`](https://www.npmjs.com/package/idle-agent-tasks).
 
 ### [`idle-skills/`](idle-skills/) — the workflow
 
-A dropped task starts with an interview: the planner asks, you decide, and the answers become a goal and a plan in your own words. The planner breaks the work into goals, builders work them, the system runs the checks, fresh reviewers judge whether each *goal* is reached — and you contradict what is not done. Fifteen skills, three personas, hooks that put fresh evidence in front of every agent when it starts, and a `/self-improve` skill (manual or weekly across projects). Works on `idle-tasks`, or standalone.
+Work starts with an interview: the lead asks, you decide, and the answers become a goal and a plan in your own words. The lead breaks the work into goals, fresh agents build them — validation first — and fresh reviewers judge whether each *goal* is reached; you contradict what is not done. Seven skills and a few session guards. The skills know nothing about a tracker: they run standalone, or keep their pieces in one such as `idle-tasks`.
 
 ```
-drop a task ──▶ interview ──▶ plan the tree ──▶ build ──▶ checks ──▶ review ──▶ ship
-   anyone      you + planner     planner        builder    system    reviewer   builder
+interview ──▶ plan ──▶ build ──▶ review ──▶ PR
+you + lead     lead    builder   reviewer   lead
 ```
 
 ## Layout
 
 | Path | Role |
 |---|---|
-| [`idle-tasks/`](idle-tasks/) | The **idle-tasks** plugin: the `idle` CLI and MCP server, the `idle` skill, its manifests for every harness. Published to npm as `idle-agent-tasks` |
-| [`idle-skills/`](idle-skills/) | The **idle-skills** plugin: skills, personas, hooks, its manifests for every harness |
+| [`idle-tasks/`](idle-tasks/) | The **idle-tasks** plugin: the `idle` CLI and MCP server, the `idle`, `retro` and `self-improve` skills, the skill-load hook, its manifests for every harness. Published to npm as `idle-agent-tasks` |
+| [`idle-skills/`](idle-skills/) | The **idle-skills** plugin: skills, hooks, its manifests for every harness |
 | [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json), [`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json), [`.cursor-plugin/marketplace.json`](.cursor-plugin/marketplace.json) | The marketplace, for Claude Code, Codex and Cursor |
-| [`scripts/`](scripts/) | Installers for the harnesses without a marketplace, and the persona generator |
+| [`scripts/`](scripts/) | Installers for the harnesses without a marketplace |
 | [`tests/`](tests/) | `npm run verify` — the backend against PGlite (and Postgres with `IDLE_TEST_DATABASE_URL`), the hooks, the installers |
 | [`docs/task-backend/`](docs/task-backend/) | The design record: the interview Q&A everything traces back to, the plan, the research |
 
@@ -37,15 +37,15 @@ drop a task ──▶ interview ──▶ plan the tree ──▶ build ──�
 
 Support levels differ by host:
 
-| Host | Skills | Personas | Hooks | Record of work | How |
-|---|---|---|---|---|---|
-| **APM** | yes | yes | yes | add the MCP server yourself | `apm install` → harness dirs |
-| **Claude Code** | yes | yes | yes | plugin (MCP + the `idle` CLI) | native plugin marketplace |
-| **Cursor** | yes | yes | yes | plugin (MCP from npm) | native plugin / Team Marketplace, or `scripts/install-cursor.sh` |
-| **Codex** | yes | via script | yes | plugin (MCP from npm) | plugin marketplace + `scripts/install-codex.sh` for personas |
-| **Antigravity** | yes | yes | no | plugin (MCP from npm) | `scripts/install-antigravity.sh` |
-| **opencode** | yes | yes | yes | installer writes `opencode.json` | `scripts/install-opencode.sh` (JS plugin is hooks-only) |
-| **Copilot / Gemini** | copy or APM | Claude-format agents | yes | add the MCP server yourself | hooks configs shipped; skills via APM or manual copy |
+| Host | Skills | Hooks | Record of work | How |
+|---|---|---|---|---|
+| **APM** | yes | yes | add the MCP server yourself | `apm install` → harness dirs |
+| **Claude Code** | yes | yes | plugin (MCP + the `idle` CLI) | native plugin marketplace |
+| **Cursor** | yes | yes | plugin (MCP from npm) | native plugin / Team Marketplace, or `scripts/install-cursor.sh` |
+| **Codex** | yes | yes | plugin (MCP from npm) | plugin marketplace |
+| **Antigravity** | yes | no | plugin (MCP from npm) | `scripts/install-antigravity.sh` |
+| **opencode** | yes | yes | installer writes `opencode.json` | `scripts/install-opencode.sh` (JS plugin is hooks-only) |
+| **Copilot / Gemini** | copy or APM | yes | add the MCP server yourself | hooks configs shipped; skills via APM or manual copy |
 
 Anywhere else, the record of work is one MCP server: `npx -y idle-agent-tasks mcp`.
 
@@ -59,7 +59,7 @@ The marketplace was renamed, so an existing install does not move by itself. Rem
 /plugin marketplace add ambrovia/idle-agent-tools
 ```
 
-then install both plugins as below. Skills keep their names; their prefix becomes `idle-skills:`. Codex asks once to re-approve the hooks, because their paths changed. Items that exist only as `.pipeline/work/<id>/plan.md` are adopted by `/orchestrate` as tasks.
+then install both plugins as below. Skills keep their names; their prefix becomes `idle-skills:`. Codex asks once to re-approve the hooks, because their paths changed.
 
 ### APM
 
@@ -95,7 +95,7 @@ In each repository, commit `.claude/settings.json`:
 
 Claude reads it from the folder a session starts in, so start at the repository root. `claude plugin marketplace update idle-agent-tools` picks up a new release.
 
-`idle-tasks` is the record of work on its own — the `idle` CLI, its MCP server and the `/idle` skill — and works with any workflow. `idle-skills` is the workflow on top and works with `idle-tasks` or standalone. The orchestrator is `/orchestrate`; `/setup`, `/lore` and `/self-improve` are the other commands you invoke directly. The phase skills are dispatched by the orchestrator, not run by hand.
+`idle-tasks` is the record of work — the `idle` CLI, its MCP server, and the `/idle`, `/retro` and `/self-improve` skills — and works with any workflow. `idle-skills` is the workflow and works with `idle-tasks` or standalone. The lead is `/orchestrate`; `/create-pr`, `/lore` and `/setup` are the other workflow commands you invoke directly. The lead plans; fresh agents it spawns build with `/build` and review with `/review`.
 
 ### Cursor — plugin
 
@@ -106,7 +106,7 @@ Dashboard → Plugins → Team Marketplaces → Import from Repo
 https://github.com/ambrovia/idle-agent-tools
 ```
 
-Then install **idle-tasks** and **idle-skills** from Customize (skills, `agents-cursor/`, `hooks/cursor-hooks.json`).
+Then install **idle-tasks** and **idle-skills** from Customize (skills, `hooks/cursor-hooks.json`).
 
 ```bash
 scripts/install-cursor.sh                 # copies → ~/.cursor/plugins/local/idle-skills and idle-tasks
@@ -119,11 +119,11 @@ scripts/install-cursor.sh /path/to/project  # or --project: copy into .cursor/
 scripts/install-antigravity.sh   # → ~/.gemini/config/plugins/idle-skills and idle-tasks
 ```
 
-The IDE and the `agy` CLI both read that folder. Antigravity copies whatever directory it is pointed at, so the script stages only what it reads: `plugin.json`, the skills, the personas from [`idle-skills/agents-antigravity/`](idle-skills/agents-antigravity/) (name and description only — it drops an agent with frontmatter fields it does not know), and for idle-tasks [`mcp_config.json`](idle-tasks/mcp_config.json). Hooks are not installed.
+The IDE and the `agy` CLI both read that folder. Antigravity copies whatever directory it is pointed at, so the script stages only what it reads: `plugin.json`, the skills, and for idle-tasks [`mcp_config.json`](idle-tasks/mcp_config.json). Hooks are not installed.
 
 ### Codex — plugin
 
-[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists both plugins. Plugin install gives skills, the record's MCP server, and the Codex hook wiring in `idle-skills/hooks/hooks.json`.
+[`.agents/plugins/marketplace.json`](.agents/plugins/marketplace.json) lists both plugins. Plugin install gives skills, the record's MCP server, and the Codex hook wiring in each plugin's `hooks/hooks.json`.
 
 Codex 0.151 or later. Once per machine — install both, then turn them off for the machine:
 
@@ -143,17 +143,11 @@ enabled = true
 enabled = true
 ```
 
-Codex reads a repository's `.codex/` only when the repository is trusted (`trust_level = "trusted"` under `[projects."<path>"]`). Enabling a plugin there does not install it. `codex plugin marketplace upgrade` picks up a new release. Personas are **not** in the plugin contract — register them with:
-
-```bash
-scripts/install-codex.sh /path/to/project
-```
-
-That writes `.codex/agents/*.toml` and namespaced `[agents.idle-*]` entries in `.codex/config.toml`.
+Codex reads a repository's `.codex/` only when the repository is trusted (`trust_level = "trusted"` under `[projects."<path>"]`). Enabling a plugin there does not install it. `codex plugin marketplace upgrade` picks up a new release. `scripts/install-codex.sh /path/to/project` installs the weekly `/self-improve` automation, and removes the persona roles earlier versions registered.
 
 ### opencode — installer
 
-[`idle-skills/.opencode/plugins/pipeline.js`](idle-skills/.opencode/plugins/pipeline.js) covers post-edit guards only. For skills, personas, and session-start guidance:
+[`idle-skills/.opencode/plugins/pipeline.js`](idle-skills/.opencode/plugins/pipeline.js) covers post-edit guards, [`idle-tasks/.opencode/plugins/idle.js`](idle-tasks/.opencode/plugins/idle.js) the skill-load evidence. For skills and session-start guidance:
 
 ```text
 scripts/install-opencode.sh            # current project
@@ -164,8 +158,7 @@ scripts/install-opencode.sh --global   # ~/.config/opencode
 | Piece | Destination |
 |---|---|
 | Skills | `.opencode/skills/` |
-| Agents | `.opencode/agents/` (`@idle-planner`, …) |
-| Post-edit guards | `.opencode/plugins/pipeline.js` |
+| Post-edit guards, skill-load evidence | `.opencode/plugins/pipeline.js`, `.opencode/plugins/idle.js` |
 | Session-start | managed block in `AGENTS.md` |
 | Record of work | `mcp.idle` in `opencode.json` (started from npm) |
 
@@ -173,7 +166,7 @@ scripts/install-opencode.sh --global   # ~/.config/opencode
 
 ### Copilot / Gemini — hooks + skills copy
 
-Hook configs ship with the workflow plugin ([`idle-skills/.github/hooks/pipeline.json`](idle-skills/.github/hooks/pipeline.json), [`idle-skills/.gemini/settings.json`](idle-skills/.gemini/settings.json)). Skills are not a native plugin on these hosts — use APM, or copy `idle-skills/skills/` and `idle-tasks/skills/` (and Claude-format `idle-skills/agents/` if needed):
+Hook configs ship with the workflow plugin ([`idle-skills/.github/hooks/pipeline.json`](idle-skills/.github/hooks/pipeline.json), [`idle-skills/.gemini/settings.json`](idle-skills/.gemini/settings.json)). Skills are not a native plugin on these hosts — use APM, or copy `idle-skills/skills/` and `idle-tasks/skills/`:
 
 | Tool | Skills path |
 |---|---|

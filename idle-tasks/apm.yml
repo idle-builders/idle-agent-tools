@@ -1,6 +1,6 @@
 name: idle-tasks
-version: 0.3.0
-description: A shared record of work for coding agents — tasks that nest into trees, and memories (decisions, assumptions, taste, and retros). The idle skill; the server itself is npm idle-agent-tasks.
+version: 0.4.0
+description: A shared record of work for coding agents — tasks that nest into trees, and memories (decisions, assumptions, taste, and retros). The idle, retro and self-improve skills and the skill-load hook; the server itself is npm idle-agent-tasks.
 author: Ambrovia
 license: Apache-2.0
 homepage: https://github.com/ambrovia/idle-agent-tools/tree/main/idle-tasks
