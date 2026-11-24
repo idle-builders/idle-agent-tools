@@ -6,9 +6,9 @@
 # Team Marketplace import (Teams/Enterprise). This script supports:
 #
 #   1. Plugin install (default) — copy both plugins into ~/.cursor/plugins/local/
-#      so Cursor discovers skills, agents, and hooks via .cursor-plugin/plugin.json.
+#      so Cursor discovers skills and hooks via .cursor-plugin/plugin.json.
 #
-#   2. Project copy (--project) — copy skills/agents/hooks into a project's
+#   2. Project copy (--project) — copy skills/hooks into a project's
 #      .cursor/ tree. Use when you need Cursor CLI compatibility or cannot use
 #      the plugin loader.
 #
@@ -55,7 +55,7 @@ if [ "$MODE" = "plugin" ]; then
     find "$dest" -type d -name node_modules -prune -exec rm -rf {} +
     echo "Installed $name as a local Cursor plugin: $dest"
   }
-  copy_plugin idle-skills "$SRC/idle-skills" .cursor-plugin skills agents-cursor hooks
+  copy_plugin idle-skills "$SRC/idle-skills" .cursor-plugin skills hooks
   copy_plugin idle-tasks "$SRC/idle-tasks" .cursor-plugin skills
   echo ""
   echo "Restart Cursor or run Developer: Reload Window."
@@ -67,16 +67,14 @@ if [ "$MODE" = "plugin" ]; then
 fi
 
 SKILLS_DIR="$TARGET/.cursor/skills"
-AGENTS_DIR="$TARGET/.cursor/agents"
 HOOKS_DIR="$TARGET/.cursor/hooks"
 HOOKS_FILE="$TARGET/.cursor/hooks.json"
 
 echo "Installing idle-skills for Cursor (project copy) → $TARGET"
 
-mkdir -p "$SKILLS_DIR" "$AGENTS_DIR" "$HOOKS_DIR"
+mkdir -p "$SKILLS_DIR" "$HOOKS_DIR"
 cp -R "$SRC/idle-skills/skills/." "$SKILLS_DIR/"
 cp -R "$SRC/idle-tasks/skills/." "$SKILLS_DIR/"
-cp "$SRC/idle-skills/agents-cursor/"*.md "$AGENTS_DIR/"
 cp "$SRC/idle-skills/hooks/session-start.sh" "$SRC/idle-skills/hooks/edit-streak.sh" "$SRC/idle-skills/hooks/thrash-detector.mjs" \
    "$SRC/idle-skills/hooks/inject.mjs" "$HOOKS_DIR/"
 chmod +x "$HOOKS_DIR/session-start.sh" "$HOOKS_DIR/edit-streak.sh" "$HOOKS_DIR/thrash-detector.mjs" \
@@ -121,7 +119,6 @@ NODE
 
 echo "  ✓ skills → $SKILLS_DIR"
 echo "  ✓ record → $TARGET/.cursor/mcp.json (mcpServers.idle)"
-echo "  ✓ agents → $AGENTS_DIR"
 echo "  ✓ hooks  → $HOOKS_FILE"
 echo ""
 echo "Restart Cursor or run Developer: Reload Window."

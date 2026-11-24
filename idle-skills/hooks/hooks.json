@@ -29,16 +29,6 @@
           }
         ]
       }
-    ],
-    "SubagentStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash -lc 'for root in \"${CLAUDE_PLUGIN_ROOT:-}\" \"${CODEX_PLUGIN_ROOT:-}\" \"$HOME\"/.claude/plugins/cache/idle-agent-tools/idle-skills/* \"$HOME\"/.codex/plugins/cache/idle-agent-tools/idle-skills/* \"$HOME\"/.codex/plugins/cache/idle-agent-tools/*/idle-skills/* \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\"; do [ -n \"$root\" ] || continue; script=\"$root/hooks/inject.mjs\"; if [ -f \"$script\" ]; then case \"$root\" in *codex*) exec node \"$script\" codex ;; *) exec node \"$script\" claude ;; esac; fi; done; exit 0'"
-          }
-        ]
-      }
     ]
   }
 }
