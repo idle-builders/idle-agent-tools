@@ -5,7 +5,7 @@ set -euo pipefail
 # the persona roles earlier versions installed.
 # Usage: scripts/install-codex.sh [project-root]
 
-PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../idle-skills" && pwd)"
+PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../idle-tasks" && pwd)"
 TARGET_ROOT="${1:-$(pwd)}"
 TARGET_ROOT="$(cd "$TARGET_ROOT" && pwd)"
 

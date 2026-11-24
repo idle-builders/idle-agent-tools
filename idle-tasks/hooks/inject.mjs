@@ -33,11 +33,11 @@ import { fileURLToPath } from 'node:url';
 
 const HOOK_DIR = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = join(HOOK_DIR, '..');
-// The record of work is read through the idle CLI: the idle-tasks plugin beside this one
-// in a checkout, when it has its dependencies; otherwise the published package.
-const LOCAL_IDLE = join(PLUGIN_ROOT, '..', 'idle-tasks', 'bin', 'idle.mjs');
+// The record of work is read through this plugin's own idle CLI when it has its
+// dependencies; otherwise the published package.
+const LOCAL_IDLE = join(PLUGIN_ROOT, 'bin', 'idle.mjs');
 const IDLE = process.env.IDLE_BIN ? [process.execPath, process.env.IDLE_BIN]
-  : existsSync(join(PLUGIN_ROOT, '..', 'idle-tasks', 'node_modules', '@electric-sql', 'pglite')) ? [process.execPath, LOCAL_IDLE]
+  : existsSync(join(PLUGIN_ROOT, 'node_modules', '@electric-sql', 'pglite')) ? [process.execPath, LOCAL_IDLE]
     : ['npx', '-y', 'idle-agent-tasks@0.3.0'];
 const SKILL_TOOL = /^skill$/i;
 const MAX_LINES = positiveInt(process.env.PIPELINE_INJECT_MAX_LINES, 300);
@@ -54,6 +54,14 @@ const EXTRA = {
   review: { checks: true, diff: true },
   build: { checks: true, checksNote: 'baseline, ran before this session\'s edits' },
 };
+
+// The workflow skills know no tracker; this is how they learn the project has one.
+const LEAD = 'orchestrate';
+const LEAD_NOTE = 'This project tracks its work in idle-tasks, the record of work. Load the `idle-tasks:idle` skill '
+  + 'and keep the goal, the maintainer\'s words, the plan, decisions and assumptions in the record, as its '
+  + '"With the workflow skills" section says. Brief each builder and reviewer from `idle show <id> --brief`.';
+const WORKER_NOTE = 'This task is tracked in idle-tasks, the record of work. Load the `idle-tasks:idle` skill and take '
+  + 'the task, hand it back, and record decisions or your verdict there, as its "With the workflow skills" section says.';
 
 let maxLines = MAX_LINES;
 
@@ -107,35 +115,20 @@ function normalizeName(raw) {
   return raw.replace(/^\//, '').split(/\s/)[0].toLowerCase().replace(/^[a-z0-9_-]+:/, '');
 }
 
-// Minimal scalar read: a quoted value keeps every character (commands contain
-// '#'), an unquoted one stops at the comment marker.
-function scalar(raw) {
-  const match = raw.trim().match(/^(?:"([^"]*)"|'([^']*)'|([^#]*?))\s*(?:#.*)?$/);
-  if (!match) return null;
-  return (match[1] ?? match[2] ?? match[3] ?? '').trim() || null;
-}
-
-function readConfig(root) {
-  let verify = null;
-  let preSpawn = null;
-  let inChecks = false;
-  try {
-    for (const line of readFileSync(join(root, 'pipeline.config.yml'), 'utf8').split('\n')) {
-      if (/^checks:\s*$/.test(line)) { inChecks = true; continue; }
-      if (inChecks && /^\S/.test(line)) inChecks = false;
-      let match = line.match(/^verify:\s*(.*)$/);
-      if (match) verify = scalar(match[1]);
-      match = line.match(/^\s+preSpawn:\s*(.*)$/);
-      if (match && inChecks) preSpawn = scalar(match[1]);
-    }
-  } catch { /* no config — checks skipped */ }
-  return { verify, preSpawn };
-}
-
 function idle(root, ...args) {
   const [command, ...prefix] = IDLE;
   const result = spawnSync(command, [...prefix, ...args], { cwd: root, encoding: 'utf8', timeout: 20_000 });
   return result.status === 0 ? result.stdout.trim() : null;
+}
+
+// The project's own checks — the ones the record runs when a task is submitted.
+function checkCommand(root) {
+  try {
+    const checks = JSON.parse(idle(root, 'doctor') ?? '{}').checks;
+    return Array.isArray(checks) && checks.length ? checks.join(' && ') : null;
+  } catch {
+    return null;
+  }
 }
 
 // The root task being worked: the most recently touched one that is not finished.
@@ -166,7 +159,7 @@ function treeState(root) {
 
 function runChecks(root, command) {
   // Outside the repository: nothing a run writes may land in the work tree.
-  const cacheDir = join(tmpdir(), 'idle-skills-checks');
+  const cacheDir = join(tmpdir(), 'idle-tasks-checks');
   const cachePath = join(cacheDir, `${createHash('sha1').update(root).digest('hex').slice(0, 12)}.log`);
   const result = spawnSync(command, {
     shell: true, cwd: root, encoding: 'utf8', timeout: CHECK_TIMEOUT_MS, maxBuffer: 2 * 1024 * 1024,
@@ -212,7 +205,9 @@ function findLore(root) {
   return lines.length ? lines.slice(0, 25).join('\n') : null;
 }
 
-function findSince(root, activeId) {
+// Where the work happens and what it started from: an active child's, else the root's —
+// the same task the record runs its checks for.
+function findWork(root, activeId) {
   try {
     const shown = JSON.parse(idle(root, 'show', activeId) ?? '{}');
     const treeOut = idle(root, 'list', '--root', activeId) ?? '';
@@ -222,13 +217,19 @@ function findSince(root, activeId) {
     const childIds = (shown.children ?? [])
       .filter((c) => ['claimed', 'submitted', 'verified'].includes(c.status))
       .map((c) => c.id);
+    const rootMeta = shown.task?.metadata ?? {};
+    let meta = rootMeta;
     for (const id of new Set([...childIds, ...treeIds])) {
-      const childTask = JSON.parse(idle(root, 'show', id) ?? '{}').task;
-      if (childTask?.metadata?.since) return childTask.metadata.since;
+      const childMeta = JSON.parse(idle(root, 'show', id) ?? '{}').task?.metadata;
+      if (childMeta?.since) { meta = childMeta; break; }
     }
-    return shown.task?.metadata?.since ?? null;
+    const worktree = meta.worktree ?? rootMeta.worktree;
+    return {
+      since: meta.since ?? null,
+      dir: typeof worktree === 'string' && existsSync(worktree) ? worktree : root,
+    };
   } catch {
-    return null;
+    return { since: null, dir: root };
   }
 }
 
@@ -237,31 +238,33 @@ function buildInjection(format) {
   const target = resolveTarget(format);
   if (!target) return null;
 
+  // No leading bracket: codex discards stdout that looks like JSON but is not.
+  const header = (id) => `pipeline injection — ${target.kind}: ${target.name}${id ? `, task: ${id}` : ''}`;
+  if (target.name === LEAD) return [header(null), '## record of work', LEAD_NOTE].join('\n\n');
   if (!DIGEST_SKILLS.has(target.name)) return null;
   const extra = EXTRA[target.name] ?? {};
 
   const root = process.cwd();
   const active = findActiveRoot(root);
   if (!active) return null;
-  // No leading bracket: codex discards stdout that looks like JSON but is not.
-  const sections = [`pipeline injection — ${target.kind}: ${target.name}, task: ${active.id}`];
+  const sections = [header(active.id), '## record of work', WORKER_NOTE];
 
-  const lore = findLore(root);
+  const work = findWork(root, active.id);
+  const lore = findLore(work.dir);
   if (lore) sections.push('## lore', cap(lore, 'git grep -n "@lore:"'));
 
   const state = idle(root, 'show', active.id, '--state');
   if (state) sections.push('## state', cap(state, `idle show ${active.id} --state`));
 
   if (extra.checks) {
-    const { verify, preSpawn } = readConfig(root);
-    const command = preSpawn ?? verify;
+    const command = checkCommand(root);
     if (command) {
-      const outcome = runChecks(root, command);
+      const outcome = runChecks(work.dir, command);
       if (outcome) {
         const staleness = outcome.stale ? ', STALE cache, live run timed out' : '';
         const exit = outcome.exit === null ? '?' : outcome.exit;
-        const tree = treeState(root);
-        const marks = [`exit ${exit}`, tree ? `tree ${tree}` : null, extra.checksNote ?? null]
+        const tree = treeState(work.dir);
+        const marks = [`exit ${exit}`, tree ? `tree ${tree}` : null, work.dir === root ? null : `in ${work.dir}`, extra.checksNote ?? null]
           .filter(Boolean).join(', ');
         sections.push(`## checks — ${command} (${marks}${staleness})`, cap(outcome.text, 'rerun the check command'));
       }
@@ -269,15 +272,14 @@ function buildInjection(format) {
   }
 
   if (extra.diff) {
-    // The commit the work started from, recorded on the active child worktree or the root.
-    const since = findSince(root, active.id);
+    const { since } = work;
     if (since) {
-      const diff = diffSince(root, String(since));
+      const diff = diffSince(work.dir, String(since));
       if (diff) sections.push(`## diff since ${since} (${diff.lines} lines)`, cap(diff.text, `git diff ${since}`));
     }
   }
 
-  return sections.length > 1 ? sections.join('\n\n') : null;
+  return sections.join('\n\n');
 }
 
 function formatMessage(format, event, message) {

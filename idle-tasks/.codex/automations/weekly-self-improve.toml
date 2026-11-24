@@ -1,0 +1,9 @@
+# Weekly self-improve routine for Codex — distills recurring taste, assumption, retro, and outcome patterns across projects.
+[automation]
+name = "Weekly Self-Improve"
+schedule = "0 9 * * 1"
+
+[prompt]
+content = """
+Run the /self-improve weekly routine: retro every finished or week-old root that has none, then look across projects for corrections the maintainer keeps making (2+ independent occurrences for standing taste, 3+ for process or skill changes) and drop a proposed root task with the evidence for each. Never edit memory, rules or skills unattended.
+"""

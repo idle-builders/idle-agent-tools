@@ -18,31 +18,11 @@
  * Claude, which skips edits made inside a subagent — this can't tell whether an
  * edit came from the lead or from a builder. The nudge is best-effort
  * and may also fire inside a subagent.
- *
- * Also ports the skill-load injection hook: when a pipeline skill loads, fresh
- * check results, the WP diff, and critiqued artifacts are appended to the skill
- * tool's result (logic lives in hooks/inject.mjs; see that guard).
  */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 
 const THRESHOLD = 5;
 const EDIT_TOOLS = /^(edit|write|patch|multiedit|notebookedit)$/i;
-const SKILL_TOOL = /^skill$/i;
-// opencode reports no skill name on the tool input, so it is read back out of
-// the rendered skill result — the only handle available. Fails closed.
-const SKILL_NAME = /<skill_content name="([\w-]+)"/;
-const PLUGIN_DIR = dirname(fileURLToPath(import.meta.url));
-// Repo and npm layouts keep the hook under hooks/; a project install has only
-// .opencode/, so install-opencode.sh drops it in .opencode/pipeline/ — beside
-// plugins/ rather than inside it, since opencode loads plugins/ as modules.
-const INJECT_HOOK = [
-  join(PLUGIN_DIR, "..", "..", "hooks", "inject.mjs"),
-  join(PLUGIN_DIR, "..", "pipeline", "inject.mjs"),
-].find((path) => existsSync(path));
 const NO_PROGRESS = /\b(error|failed|failure|timed? out|exception|rejected|cannot|unable|no changes?|unchanged|not found|no match)\b/i;
 
 // sessionID -> count of edits since the last nudge. Module scope persists for
@@ -54,19 +34,6 @@ export const AgentPipeline = async () => {
   return {
     "tool.execute.after": async (input, output) => {
       try {
-        if (INJECT_HOOK && input && SKILL_TOOL.test(input.tool || "") && typeof output?.output === "string") {
-          const name = (output.output.slice(0, 500).match(SKILL_NAME) || [])[1];
-          if (name) {
-            const injected = spawnSync(process.execPath, [INJECT_HOOK, "opencode", name], {
-              cwd: process.cwd(), encoding: "utf8", timeout: 60_000,
-            });
-            if (injected.status === 0 && injected.stdout.trim()) {
-              output.output += `\n\n---\n${injected.stdout.trim()}`;
-            }
-          }
-          return;
-        }
-
         if (!input || !EDIT_TOOLS.test(input.tool || "")) return;
 
         const sid = input.sessionID || "default";

@@ -51,9 +51,9 @@ done
 
 SIDECAR_DEST="$HOME/.gemini/config/sidecars/weekly-self-improve"
 mkdir -p "$SIDECAR_DEST"
-cp "$SRC/idle-skills/sidecars/weekly-self-improve/sidecar.json" "$SIDECAR_DEST/sidecar.json"
+cp "$SRC/idle-tasks/sidecars/weekly-self-improve/sidecar.json" "$SIDECAR_DEST/sidecar.json"
 echo "  ✓ weekly-self-improve → $SIDECAR_DEST/sidecar.json"
 
 echo ""
-echo "Restart Antigravity. Skills surface as idle-skills:<name> and idle-tasks:idle;"
+echo "Restart Antigravity. Skills surface as idle-skills:<name> and idle-tasks:<name>;"
 echo "the record of work is the MCP server \"idle\", and \"Weekly Self-Improve\" is in Automations."

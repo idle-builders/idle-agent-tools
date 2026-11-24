@@ -56,7 +56,7 @@ if [ "$MODE" = "plugin" ]; then
     echo "Installed $name as a local Cursor plugin: $dest"
   }
   copy_plugin idle-skills "$SRC/idle-skills" .cursor-plugin skills hooks
-  copy_plugin idle-tasks "$SRC/idle-tasks" .cursor-plugin skills
+  copy_plugin idle-tasks "$SRC/idle-tasks" .cursor-plugin skills hooks
   echo ""
   echo "Restart Cursor or run Developer: Reload Window."
   echo ""
@@ -76,7 +76,7 @@ mkdir -p "$SKILLS_DIR" "$HOOKS_DIR"
 cp -R "$SRC/idle-skills/skills/." "$SKILLS_DIR/"
 cp -R "$SRC/idle-tasks/skills/." "$SKILLS_DIR/"
 cp "$SRC/idle-skills/hooks/session-start.sh" "$SRC/idle-skills/hooks/edit-streak.sh" "$SRC/idle-skills/hooks/thrash-detector.mjs" \
-   "$SRC/idle-skills/hooks/inject.mjs" "$HOOKS_DIR/"
+   "$SRC/idle-tasks/hooks/inject.mjs" "$HOOKS_DIR/"
 chmod +x "$HOOKS_DIR/session-start.sh" "$HOOKS_DIR/edit-streak.sh" "$HOOKS_DIR/thrash-detector.mjs" \
           "$HOOKS_DIR/inject.mjs"
 
