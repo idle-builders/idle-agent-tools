@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node ${CURSOR_PLUGIN_ROOT}/hooks/session-start.mjs cursor"
+      }
+    ],
+    "postToolUse": [
+      {
+        "matcher": "Skill|skill",
+        "command": "node ${CURSOR_PLUGIN_ROOT}/hooks/inject.mjs cursor"
+      }
+    ]
+  }
+}

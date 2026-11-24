@@ -259,7 +259,7 @@ test('every place that starts the published server names exactly the version in 
   // npx keeps serving a cached install for a version range, so a range never picks up a fix.
   const repo = resolve(new URL('..', import.meta.url).pathname);
   const { version } = JSON.parse(readFileSync(join(repo, 'idle-tasks/package.json'), 'utf8'));
-  for (const file of ['idle-tasks/.codex-plugin/plugin.json', 'idle-tasks/.cursor-plugin/plugin.json', 'scripts/install-opencode.sh', 'scripts/install-cursor.sh', 'idle-skills/hooks/inject.mjs', 'idle-tasks/mcp_config.json']) {
+  for (const file of ['idle-tasks/.codex-plugin/plugin.json', 'idle-tasks/.cursor-plugin/plugin.json', 'scripts/install-opencode.sh', 'scripts/install-cursor.sh', 'idle-tasks/hooks/inject.mjs', 'idle-tasks/mcp_config.json']) {
     const pins = readFileSync(join(repo, file), 'utf8').match(/idle-agent-tasks@[0-9][0-9.]*/g) ?? [];
     assert.ok(pins.length > 0, `${file} starts the server`);
     for (const pin of pins) assert.equal(pin, `idle-agent-tasks@${version}`, file);

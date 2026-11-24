@@ -1,0 +1,13 @@
+{
+  "builtin": "schedule",
+  "args": [
+    "CRON_TZ=Europe/Zurich 0 9 * * 1",
+    "agentapi",
+    "new-conversation",
+    "--",
+    "Run the /self-improve weekly routine: retro every finished or week-old root that has none, then look across projects for corrections the maintainer keeps making (2+ independent occurrences for standing taste, 3+ for process or skill changes) and drop a proposed root task with the evidence for each. Never edit memory, rules or skills unattended."
+  ],
+  "restart_policy": "always",
+  "display_name": "Weekly Self-Improve",
+  "description": "Every Monday at 9:00 AM, runs /self-improve across active projects to propose fixes for the corrections the maintainer keeps making, for their approval."
+}

@@ -14,10 +14,6 @@
       {
         "matcher": "Write|Edit|MultiEdit",
         "command": "node ${CURSOR_PLUGIN_ROOT}/hooks/thrash-detector.mjs cursor"
-      },
-      {
-        "matcher": "Skill|skill",
-        "command": "node ${CURSOR_PLUGIN_ROOT}/hooks/inject.mjs cursor"
       }
     ]
   }

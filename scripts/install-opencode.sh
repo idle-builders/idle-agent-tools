@@ -77,13 +77,13 @@ echo "  ✓ record   → $CONFIG_FILE (mcp.idle)"
 
 # 2. Plugin — post-edit guards.
 mkdir -p "$PLUGINS_DIR"
-cp "$SRC/idle-skills/.opencode/plugins/pipeline.js" "$PLUGINS_DIR/"
-echo "  ✓ plugin   → $PLUGINS_DIR/pipeline.js"
+cp "$SRC/idle-skills/.opencode/plugins/pipeline.js" "$SRC/idle-tasks/.opencode/plugins/idle.js" "$PLUGINS_DIR/"
+echo "  ✓ plugins  → $PLUGINS_DIR/pipeline.js, idle.js"
 
 # 3. Helpers the plugin shells out to. Not in plugins/ — opencode imports every
 #    module there, and these are executables with their own entry points.
 mkdir -p "$HELPERS_DIR"
-cp "$SRC/idle-skills/hooks/inject.mjs" "$HELPERS_DIR/"
+cp "$SRC/idle-tasks/hooks/inject.mjs" "$HELPERS_DIR/"
 echo "  ✓ helpers  → $HELPERS_DIR"
 
 # 4. Session-start guidance — an idempotent managed block in AGENTS.md.
@@ -96,12 +96,14 @@ $BEGIN
 
 idle-skills is active. Work in structured phases, not freeform.
 
-- Large or non-trivial changes: drop a task with the idle skill, then run it through the
-  orchestrate skill, which works out what is wanted and plans it with the user. Don't freelance big changes.
+- Large or non-trivial changes: run them through the orchestrate skill, which works out
+  what is wanted and plans it with the user. Don't freelance big changes.
 - Conceptual questions (what a thing IS or should be): resolve them interactively
   with the user — don't settle load-bearing meaning alone.
 - Structured work runs through the orchestrate skill: you are the lead. You interview,
   plan and dispatch; fresh agents you spawn do the building and the reviewing.
+- This project tracks its work in idle-tasks, the record of work: load the idle skill and keep
+  the workflow's pieces in the record, as its "With the workflow skills" section says.
 $END
 EOF
 

@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
-const hook = resolve(new URL('..', import.meta.url).pathname, 'idle-skills/hooks/inject.mjs');
+const hook = resolve(new URL('..', import.meta.url).pathname, 'idle-tasks/hooks/inject.mjs');
 const idleBin = resolve(new URL('..', import.meta.url).pathname, 'idle-tasks/bin/idle.mjs');
 
 // Each fixture is a repository plus a whole PGlite database; leave none behind.
@@ -35,7 +35,12 @@ function emptyRepo() {
   return root;
 }
 
-function fixture({ verify = 'echo CHECKS-GREEN', archived = false, since: sinceOverride, config } = {}) {
+function setChecks(root, checks) {
+  const { project } = idle(root, 'doctor');
+  writeFileSync(join(homes.get(root).IDLE_HOME, 'config.json'), JSON.stringify({ checks: { [project]: checks } }));
+}
+
+function fixture({ verify = 'echo CHECKS-GREEN', archived = false, since: sinceOverride, checks } = {}) {
   const root = emptyRepo();
   git(root, 'init', '-q');
   writeFileSync(join(root, 'file.txt'), 'one\n');
@@ -47,7 +52,7 @@ function fixture({ verify = 'echo CHECKS-GREEN', archived = false, since: sinceO
   const task = idle(root, 'task', '--title', 'Demo fix', '--goal', 'The demo no longer breaks',
     '--plan', 'PLAN-MARKER what we need', '--meta', JSON.stringify({ since: sinceOverride ?? since }));
   if (archived) idle(root, 'task', '--id', task.id, '--status', 'archived');
-  writeFileSync(join(root, 'pipeline.config.yml'), config ?? `verify: "${verify}"\n`);
+  setChecks(root, checks ?? [verify]);
   return { root, since, id: task.id };
 }
 
@@ -87,14 +92,27 @@ test('build is told its checks predate the session edits', () => {
   assert.doesNotMatch(context, /## diff/);
 });
 
-test('checks.preSpawn overrides verify and keeps a quoted #', () => {
-  const { root } = fixture({
-    config: 'verify: "echo FULL-GATE"\nchecks:\n  preSpawn: "echo FAST#TAG"\n',
-  });
+test('the project\'s checks from the record run as one command', () => {
+  const { root } = fixture({ checks: ['echo FIRST', 'echo SECOND#TAG'] });
   const context = claudeContext(run(root, 'claude', skillPayload('review')));
-  assert.match(context, /## checks — echo FAST#TAG/);
-  assert.match(context, /FAST#TAG/);
-  assert.doesNotMatch(context, /FULL-GATE/);
+  assert.match(context, /## checks — echo FIRST && echo SECOND#TAG/);
+  assert.match(context, /FIRST\nSECOND#TAG/);
+});
+
+test('checks and the diff come from the worktree recorded on the task, not the session folder', () => {
+  const { root, id, since } = fixture({ checks: ['test -f only-in-worktree && echo IN-WORKTREE'] });
+  const worktree = mkdtempSync(join(tmpdir(), 'pipeline-inject-wt-'));
+  made.push(worktree);
+  rmSync(worktree, { recursive: true });
+  git(root, 'worktree', 'add', '-q', '-b', 'work', worktree, since);
+  writeFileSync(join(worktree, 'only-in-worktree'), 'x\n');
+  writeFileSync(join(worktree, 'file.txt'), 'one\nfrom-the-worktree\n');
+  idle(root, 'task', '--id', id, '--meta', JSON.stringify({ since, worktree }));
+
+  const context = claudeContext(run(root, 'claude', skillPayload('review')));
+  assert.match(context, /IN-WORKTREE/);
+  assert.match(context, /\+from-the-worktree/);
+  assert.doesNotMatch(context, /\+two/);
 });
 
 test('a flag-shaped since is never handed to git', () => {
@@ -110,6 +128,21 @@ test('the most recently touched root wins', () => {
   const context = claudeContext(run(root, 'claude', skillPayload('review')));
   assert.match(context, new RegExp(`task: ${id}`));
   assert.doesNotMatch(context, new RegExp(`task: ${newer.id}`));
+});
+
+test('the lead is pointed at the record before any task exists', () => {
+  const context = claudeContext(run(emptyRepo(), 'claude', skillPayload('idle-skills:orchestrate')));
+  assert.match(context, /## record of work/);
+  assert.match(context, /idle-tasks:idle/);
+});
+
+test('a builder or reviewer on a tracked task is told to work it in the record', () => {
+  const { root } = fixture();
+  for (const skill of ['build', 'review']) {
+    const context = claudeContext(run(root, 'claude', skillPayload(skill)));
+    assert.match(context, /## record of work/);
+    assert.match(context, /idle-tasks:idle/);
+  }
 });
 
 test('non-pipeline skills get no injection', () => {
@@ -129,7 +162,7 @@ test('finished roots are not injected', () => {
 test('check results are cached, and slow checks fall back to the stale cache', () => {
   const { root } = fixture({ verify: 'echo EARLIER-GREEN' });
   run(root, 'claude', skillPayload('review'));
-  writeFileSync(join(root, 'pipeline.config.yml'), 'verify: "sleep 2"\n');
+  setChecks(root, ['sleep 2']);
   const context = claudeContext(run(root, 'claude', skillPayload('review'), { PIPELINE_CHECK_TIMEOUT_MS: '300' }));
   assert.match(context, /STALE/);
   assert.match(context, /EARLIER-GREEN/);

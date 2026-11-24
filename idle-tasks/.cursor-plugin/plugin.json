@@ -9,6 +9,7 @@
   "repository": "https://github.com/ambrovia/idle-agent-tools",
   "license": "Apache-2.0",
   "skills": "./skills",
+  "hooks": "./hooks/cursor-hooks.json",
   "keywords": [
     "tasks",
     "memory",
