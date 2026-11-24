@@ -1,7 +1,6 @@
 ---
 name: idle
 description: "Read and write the shared record of work: tasks that nest into trees, and memories (decisions, assumptions, taste, and retros). Use whenever work is coordinated through the task backend — to drop a task, structure one into a tree, claim a task, give feedback, record a memory, submit, or see where a piece of work stands. Workflow-neutral."
-persona: any
 applies-to: [frontend, backend, application, framework, infra]
 user-invocable: true
 ---
@@ -26,7 +25,7 @@ names what a task touches — paths, modules, systems; two tasks whose scopes ov
 at the same time.
 
 A task's `plan` is the condensed, worker-facing plan; its `interview` is the Q&A progression it came from.
-Both sit on the root once it has been refined, and on any deeper task that needed its own.
+Both sit on the root once the maintainer has been interviewed, and on any deeper task that needed its own.
 
 A **memory** (`--summary`, `--details`, optional `--rejected`) is a structured entry anyone may record:
 - `--kind decision` (default): a choice made where the plan was silent (`--summary` what was chosen, `--details` why, `--rejected` alternatives rejected);
@@ -92,26 +91,44 @@ the worker is refused.
 Read before you move: `show --brief` before working a task, `show --state` before planning a tree.
 Never plan from memory of a conversation.
 
-## Checks
+## With the workflow skills
 
-`~/.idle/config.json` names the commands that verify each project's work:
-`{ "checks": { "<project>": ["npm run verify"] }, "review": true }`. The project is the repository
-folder's name; `idle doctor` prints it and the checks it found. A wrong key means no checks, silently. They run on the machine that
-submits, in the worktree recorded on the task or the nearest task above it (`meta: {"worktree": …}`). `review` makes a verified task wait for
-someone who did not do the work.
+`/orchestrate`, `/build`, `/review` and `/design` work without a tracker. When they run on the record,
+the lead first finds or drops the root task for the work, and this is where their pieces live:
+
+| The skill speaks of | In the record |
+|---|---|
+| the goal, `How it is used`, the plan | the root task's fields |
+| the maintainer's words | the root's `interview`, verbatim, added to as they say more |
+| a decision or assumption on the whole piece of work | `memory --task <root>` |
+| a standing preference | `memory --kind taste`, no `--task`; every brief carries it |
+| the worktree and the commit it was cut from | the root's `meta: {"worktree": …, "since": …}` |
+| where the work stands | `show --state` |
+| the brief | `show --brief`; the lead spawns with it as the prompt |
+| a builder taking the task | claim it, before the first edit |
+| handing back: done / bigger than it looked / blocked | submit (the checks run) / `proposed` children, then release / block with feedback |
+| the review verdict | `verified` → `done`, or back to `open` with the blocking findings |
+| work found along the way | a new root task, dropped and left for the maintainer |
+
+When a root is done, archived, or untouched for a week, `/retro` it.
+
+## Setting up
+
+Propose each step, show what you would write, and write only what the maintainer approves.
+
+- **Checks.** `~/.idle/config.json` names the commands that verify each project's work:
+  `{ "checks": { "<project>": ["npm run verify"] }, "review": true }`. The project is the repository
+  folder's name; `idle doctor` prints it and the checks it found. A wrong key means no checks, silently.
+  They run on the machine that submits, in the worktree recorded on the task or the nearest task above it
+  (`meta: {"worktree": …}`). `review` makes a verified task wait for someone who did not do the work. A
+  shared database only when the maintainer brings one.
+- **The weekly `/self-improve` run** in this harness — Claude Code `/schedule`, Codex
+  `.codex/automations/`, Antigravity the `sidecars/` definition — using its `## Weekly routine`.
 
 ## Starting a worker
 
 A worker needs nothing but its brief. Start a session in any harness with the brief as the prompt and
 `IDLE_BY` set to who it is: `IDLE_BY=<harness>/<model> <harness> "$(idle show <id> --brief)"`.
-
-## Keeping work alive
-
-For a scheduled run in any harness. Each step is one read and at most one move:
-
-1. `show --state` on each open root task of the project.
-2. A task still `submitted` means its checks never finished: submit it again, where the work is.
-3. If anything else needs attention, start one planning session on that root.
 
 ## Target
 
