@@ -36,7 +36,7 @@ test("edit streak remains a separate delegation hook", () => {
       input: fixture("streak"), encoding: "utf8", env: { ...process.env, CLAUDE_PLUGIN_DATA: state },
     });
   }
-  assert.match(result.stdout, /delegate to your team/);
+  assert.match(result.stdout, /hand the building to a fresh agent/);
 });
 
 for (const [format, matches] of [
@@ -71,7 +71,7 @@ test("opencode retains edit streak and adds thrash warning", async () => {
     await plugin["tool.execute.after"](input, output);
     final = output.output;
   }
-  assert.match(final, /delegate to your team/);
+  assert.match(final, /hand the building to a fresh agent/);
   assert.match(final, /repeating without progress/);
 });
 

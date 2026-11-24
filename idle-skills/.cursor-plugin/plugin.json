@@ -19,6 +19,5 @@
     "self-improve"
   ],
   "skills": "./skills",
-  "agents": "./agents-cursor",
   "hooks": "./hooks/cursor-hooks.json"
 }

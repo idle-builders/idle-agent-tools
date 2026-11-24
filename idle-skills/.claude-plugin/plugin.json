@@ -8,10 +8,5 @@
   "homepage": "https://github.com/ambrovia/idle-agent-tools",
   "repository": "https://github.com/ambrovia/idle-agent-tools",
   "license": "Apache-2.0",
-  "skills": "./skills",
-  "agents": [
-    "./agents/idle-planner.md",
-    "./agents/idle-reviewer.md",
-    "./agents/idle-builder.md"
-  ]
+  "skills": "./skills"
 }
